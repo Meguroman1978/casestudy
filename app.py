@@ -241,7 +241,7 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=20):
             'channel_summary': channel_summary,
             'paginated_channels': paginated_channels,
             'detailed_data': detailed_data,
-            'total_channels': len(channel_summary),
+            'total_domains': len(channel_summary),  # Changed from total_channels to total_domains
             'current_page': page,
             'page_size': page_size,
             'has_next': end_idx < len(channel_summary)
