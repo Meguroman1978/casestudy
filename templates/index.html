@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>動画事例データ分析アプリ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- ヘッダー -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">動画事例データ分析アプリ</h1>
+            <p class="text-gray-600">ExcelファイルとGoogle Sheetを連携してデータを分析します</p>
+        </div>
+
+        <!-- 入力フォーム -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">データアップロード</h2>
+            
+            <form id="uploadForm" class="space-y-4">
+                <!-- ファイルアップロード -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Top Video Views per URL (ショート動画)
+                        </label>
+                        <input type="file" id="videoFile" name="video_file" accept=".xlsx,.xls" required
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Top Live Stream Views per URL (ライブ配信)
+                        </label>
+                        <input type="file" id="liveFile" name="live_file" accept=".xlsx,.xls" required
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    </div>
+                </div>
+
+                <!-- フィルター -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="caseType" class="block text-sm font-medium text-gray-700 mb-2">
+                            事例タイプ <span class="text-red-500">*</span>
+                        </label>
+                        <select id="caseType" name="case_type" required
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="short_video">ショート動画事例</option>
+                            <option value="live_stream">ライブ配信事例</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="industry" class="block text-sm font-medium text-gray-700 mb-2">
+                            業界名
+                        </label>
+                        <select id="industry" name="industry"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="none">選択しない</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="country" class="block text-sm font-medium text-gray-700 mb-2">
+                            国
+                        </label>
+                        <select id="country" name="country"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="none">選択しない</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 送信ボタン -->
+                <div class="flex justify-end">
+                    <button type="submit" id="submitBtn"
+                            class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        データを分析
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ローディング表示 -->
+        <div id="loading" class="hidden bg-white rounded-lg shadow-md p-8 mb-6">
+            <div class="flex flex-col items-center justify-center">
+                <div class="loader mb-4"></div>
+                <p class="text-gray-600">データを処理中...</p>
+            </div>
+        </div>
+
+        <!-- エラー表示 -->
+        <div id="error" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div class="flex items-start">
+                <svg class="w-5 h-5 text-red-600 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                <div>
+                    <h3 class="text-red-800 font-semibold">エラー</h3>
+                    <p id="errorMessage" class="text-red-700 mt-1"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結果表示 -->
+        <div id="results" class="hidden bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">分析結果</h2>
+                <span id="resultCount" class="text-sm text-gray-600"></span>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr id="tableHeader"></tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200" id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- CSVダウンロードボタン -->
+            <div class="mt-4 flex justify-end">
+                <button id="downloadBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    CSVでダウンロード
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentData = null;
+
+        // ページ読み込み時に業界名と国のオプションを取得
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const response = await fetch('/api/get-options');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const industrySelect = document.getElementById('industry');
+                    const countrySelect = document.getElementById('country');
+                    
+                    // 業界名のオプションを追加
+                    data.industries.forEach(industry => {
+                        const option = document.createElement('option');
+                        option.value = industry;
+                        option.textContent = industry;
+                        industrySelect.appendChild(option);
+                    });
+                    
+                    // 国のオプションを追加
+                    data.countries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country;
+                        option.textContent = country;
+                        countrySelect.appendChild(option);
+                    });
+                } else {
+                    showError('オプションの取得に失敗しました: ' + data.error);
+                }
+            } catch (error) {
+                showError('オプションの取得中にエラーが発生しました: ' + error.message);
+            }
+        });
+
+        // フォーム送信処理
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // UI更新
+            hideError();
+            hideResults();
+            showLoading();
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentData = data;
+                    displayResults(data);
+                } else {
+                    showError(data.error || 'データの処理に失敗しました');
+                }
+            } catch (error) {
+                showError('通信エラーが発生しました: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        });
+
+        // 結果表示
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const tableHeader = document.getElementById('tableHeader');
+            const tableBody = document.getElementById('tableBody');
+            const resultCount = document.getElementById('resultCount');
+            
+            // テーブルヘッダーを作成
+            tableHeader.innerHTML = '';
+            data.columns.forEach(col => {
+                const th = document.createElement('th');
+                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.textContent = col;
+                tableHeader.appendChild(th);
+            });
+            
+            // テーブルボディを作成
+            tableBody.innerHTML = '';
+            data.data.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = index % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                
+                data.columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = 'px-6 py-4 text-sm text-gray-900';
+                    
+                    // URLの場合はリンクにする
+                    if (col === 'URL') {
+                        const link = document.createElement('a');
+                        link.href = row[col];
+                        link.target = '_blank';
+                        link.className = 'text-blue-600 hover:text-blue-800 hover:underline';
+                        link.textContent = row[col];
+                        td.appendChild(link);
+                    } else {
+                        td.textContent = row[col];
+                    }
+                    
+                    tr.appendChild(td);
+                });
+                
+                tableBody.appendChild(tr);
+            });
+            
+            // 件数表示
+            resultCount.textContent = `${data.total_count}件のデータが見つかりました`;
+            
+            // 結果表示
+            resultsDiv.classList.remove('hidden');
+        }
+
+        // CSVダウンロード
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            if (!currentData) return;
+            
+            // CSVデータを作成
+            const csv = [];
+            csv.push(currentData.columns.join(','));
+            
+            currentData.data.forEach(row => {
+                const values = currentData.columns.map(col => {
+                    const value = row[col] || '';
+                    // カンマや改行を含む場合はダブルクォートで囲む
+                    if (value.toString().includes(',') || value.toString().includes('\n')) {
+                        return `"${value.toString().replace(/"/g, '""')}"`;
+                    }
+                    return value;
+                });
+                csv.push(values.join(','));
+            });
+            
+            // BOMを追加してExcelで正しく表示されるようにする
+            const bom = '\uFEFF';
+            const csvContent = bom + csv.join('\n');
+            
+            // ダウンロード
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `analysis_result_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+        });
+
+        // ユーティリティ関数
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error').classList.add('hidden');
+        }
+
+        function hideResults() {
+            document.getElementById('results').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
