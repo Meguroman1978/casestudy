@@ -3,6 +3,7 @@ import traceback
 import logging
 import requests
 import re
+import json
 from urllib.parse import urlparse
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
@@ -52,11 +53,11 @@ def get_google_sheet_data():
         logger.error(traceback.format_exc())
         return None
 
-def merge_data(video_df, live_df, sheet_df, case_type, industry, country):
+def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country):
     """データをマージしてフィルタリングする"""
     try:
         logger.info("[STEP 2] データマージ処理開始")
-        logger.info(f"選択された事例タイプ: {case_type}, 業界: {industry}, 国: {country}")
+        logger.info(f"選択された事例タイプ: {case_type}, 業界フィルター: {industry_filter}, 国: {country}")
         
         # 事例タイプに応じて使用するデータフレームを選択
         if case_type == 'short_video':
@@ -95,10 +96,20 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry, country):
         logger.info("[STEP 4] フィルタリング実行中...")
         before_filter = len(merged_df)
         
-        if industry != 'none':
-            merged_df = merged_df[merged_df['Account: Industry'] == industry]
-            logger.info(f"業界フィルター適用 ({industry}): {before_filter}行 → {len(merged_df)}行")
-            before_filter = len(merged_df)
+        # 業界フィルター（複数の業界名を受け取る場合に対応）
+        if industry_filter and industry_filter != 'none':
+            # カンマ区切りで複数の業界名が来る場合に対応
+            if isinstance(industry_filter, str):
+                industries = [i.strip() for i in industry_filter.split(',') if i.strip()]
+            elif isinstance(industry_filter, list):
+                industries = industry_filter
+            else:
+                industries = [industry_filter]
+            
+            if industries:
+                merged_df = merged_df[merged_df['Account: Industry'].isin(industries)]
+                logger.info(f"業界フィルター適用 ({', '.join(industries)}): {before_filter}行 → {len(merged_df)}行")
+                before_filter = len(merged_df)
         
         if country != 'none':
             merged_df = merged_df[merged_df['Account: Owner Territory'] == country]
@@ -116,14 +127,14 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry, country):
             'Video Views'
         ]].copy()
         
-        # 列名を日本語に変更
-        result_df.columns = ['会社名', '業界名', '国', 'URL', '視聴回数']
+        # 列名を日本語に変更（視聴回数は内部計算用に保持、表示時は除外）
+        result_df.columns = ['会社名', '業界名', '国', 'URL', '_views']
         
         # NaNを空文字列に変換
         result_df = result_df.fillna('')
         
-        # 視聴回数で降順ソート
-        result_df = result_df.sort_values('視聴回数', ascending=False)
+        # URLからドメインを抽出
+        result_df['ドメイン'] = result_df['URL'].apply(lambda x: urlparse(x).hostname if x else '')
         
         logger.info(f"[STEP 5 完了] 最終結果: {len(result_df)}行")
         logger.debug(f"結果のサンプル:\n{result_df.head(3)}")
@@ -131,6 +142,55 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry, country):
         return result_df
     except Exception as e:
         logger.error(f"[エラー] データマージ失敗: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
+def group_by_domain_and_paginate(result_df, page=1, page_size=10):
+    """ドメインごとにグループ化してページネーションを適用"""
+    try:
+        logger.info(f"[STEP 6] ドメイン単位でグループ化中... (ページ: {page}, サイズ: {page_size})")
+        
+        # ドメインごとに視聴回数を集計
+        domain_summary = result_df.groupby('ドメイン').agg({
+            '会社名': 'first',
+            '業界名': 'first',
+            '国': 'first',
+            '_views': 'sum',
+            'URL': 'count'  # URL数をカウント
+        }).reset_index()
+        
+        domain_summary.columns = ['ドメイン', '会社名', '業界名', '国', '合計視聴回数', 'URL数']
+        
+        # 合計視聴回数で降順ソート
+        domain_summary = domain_summary.sort_values('合計視聴回数', ascending=False)
+        
+        logger.info(f"グループ化完了: {len(domain_summary)}ドメイン")
+        
+        # ページネーション適用
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_domains = domain_summary.iloc[start_idx:end_idx]
+        
+        logger.info(f"ページ {page}: {len(paginated_domains)}ドメインを返却")
+        
+        # ページネーション対象のドメインの詳細データを取得
+        domain_list = paginated_domains['ドメイン'].tolist()
+        detailed_data = result_df[result_df['ドメイン'].isin(domain_list)].copy()
+        
+        # 視聴回数で降順ソート（ドメイン内）
+        detailed_data = detailed_data.sort_values(['ドメイン', '_views'], ascending=[True, False])
+        
+        return {
+            'domain_summary': domain_summary,
+            'paginated_domains': paginated_domains,
+            'detailed_data': detailed_data,
+            'total_domains': len(domain_summary),
+            'current_page': page,
+            'page_size': page_size,
+            'has_next': end_idx < len(domain_summary)
+        }
+    except Exception as e:
+        logger.error(f"[エラー] ドメイングループ化失敗: {e}")
         logger.error(traceback.format_exc())
         return None
 
@@ -144,8 +204,14 @@ def get_options():
     """業界名と国のオプションを取得"""
     try:
         sheet_df = get_google_sheet_data()
+        
+        # Google Sheetからデータを取得できない場合は、デフォルトの国リストを使用
         if sheet_df is None:
-            return jsonify({'error': 'Google Sheetからデータを取得できませんでした'}), 500
+            default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
+            return jsonify({
+                'industries': [],
+                'countries': default_countries
+            })
         
         # ユニークな業界名と国を取得（空でないもの）
         industries = sorted(sheet_df['Account: Industry'].dropna().unique().tolist())
@@ -156,6 +222,23 @@ def get_options():
             'countries': countries
         })
     except Exception as e:
+        # エラーが発生した場合もデフォルトの国リストを返す
+        default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
+        return jsonify({
+            'industries': [],
+            'countries': default_countries
+        })
+
+@app.route('/api/get-category-hierarchy', methods=['GET'])
+def get_category_hierarchy():
+    """カテゴリー階層を取得"""
+    try:
+        hierarchy_path = os.path.join(os.path.dirname(__file__), 'category_hierarchy.json')
+        with open(hierarchy_path, 'r', encoding='utf-8') as f:
+            hierarchy = json.load(f)
+        return jsonify(hierarchy)
+    except Exception as e:
+        logger.error(f"Category hierarchy load error: {e}")
         return jsonify({'error': str(e)}), 500
 
 def check_fw_tag_in_url(url):
@@ -186,14 +269,21 @@ def api_check_fw_tag():
         has_fw_tag, html_content = check_fw_tag_in_url(url)
         
         # スクリーンショットURL（要件5用）
-        # 実際のスクリーンショット取得は外部サービスを使用する想定
-        # ここではダミーのスクリーンショットURLを返す
+        # 複数のスクリーンショットサービスを試行
         screenshot_url = None
         if has_fw_tag:
-            # 例: screenshot APIサービスを使用
-            # screenshot_url = f"https://api.screenshotmachine.com/?key=YOUR_KEY&url={url}&dimension=1024x768"
-            # または自前でスクリーンショットを生成
-            screenshot_url = f"https://via.placeholder.com/400x300?text=Screenshot+of+{urlparse(url).hostname}"
+            # URLエンコード
+            from urllib.parse import quote
+            encoded_url = quote(url, safe='')
+            
+            # Option 1: screenshotapi.net (無料、登録不要)
+            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width=400&height=300&output=image&file_type=png&wait_for_event=load"
+            
+            # Option 2 (fallback): Google's Page Speed Insights screenshot
+            # screenshot_url = f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={encoded_url}&screenshot=true"
+            
+            # Option 3 (fallback): screenshot.guru
+            # screenshot_url = f"https://api.screenshot.guru/screenshot?url={encoded_url}&width=400&height=300"
         
         return jsonify({
             'has_fw_tag': has_fw_tag,
@@ -230,10 +320,12 @@ def process_data():
         
         # パラメータの取得
         case_type = request.form.get('case_type', 'short_video')
-        industry = request.form.get('industry', 'none')
+        industry_filter = request.form.get('industry_filter', 'none')
         country = request.form.get('country', 'none')
+        page = int(request.form.get('page', 1))
+        page_size = int(request.form.get('page_size', 10))
         
-        logger.info(f"検索条件: 事例タイプ={case_type}, 業界={industry}, 国={country}")
+        logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, ページ={page}")
         
         # ファイルを一時保存
         video_filename = secure_filename(video_file.filename)
@@ -260,28 +352,43 @@ def process_data():
             return jsonify({'error': 'Google Sheetからデータを取得できませんでした'}), 500
         
         # データのマージとフィルタリング
-        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry, country)
+        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         
         if result_df is None:
             logger.error("データマージ処理に失敗")
             return jsonify({'error': 'データの処理中にエラーが発生しました。詳細はサーバーログを確認してください。'}), 500
         
-        # 要件4: <fw-タグを含むURLのみをフィルタリング
-        logger.info("[STEP 6] <fw-タグフィルタリング開始...")
-        original_count = len(result_df)
+        # ドメインごとにグループ化してページネーション
+        pagination_result = group_by_domain_and_paginate(result_df, page=page, page_size=page_size)
+        
+        if pagination_result is None:
+            logger.error("ドメインのグループ化に失敗")
+            return jsonify({'error': 'ドメインのグループ化中にエラーが発生しました。'}), 500
+        
+        # 要件4: 表示対象のURLのみ<fw-タグをチェック（パフォーマンス改善）
+        logger.info("[STEP 7] 表示対象URLの<fw-タグチェック開始...")
+        detailed_data = pagination_result['detailed_data']
+        original_count = len(detailed_data)
         
         # URLごとに<fw-タグの存在をチェック
         fw_tag_flags = []
-        for idx, row in result_df.iterrows():
+        for idx, row in detailed_data.iterrows():
             url = row['URL']
             has_fw_tag, _ = check_fw_tag_in_url(url)
             fw_tag_flags.append(has_fw_tag)
         
-        result_df['has_fw_tag'] = fw_tag_flags
-        result_df = result_df[result_df['has_fw_tag'] == True].copy()
-        result_df = result_df.drop('has_fw_tag', axis=1)
+        detailed_data['has_fw_tag'] = fw_tag_flags
+        filtered_data = detailed_data[detailed_data['has_fw_tag'] == True].copy()
         
-        logger.info(f"[STEP 6 完了] <fw-タグフィルター: {original_count}行 → {len(result_df)}行")
+        # 内部使用列を削除（フロントエンドで使用しないため）
+        if 'ドメイン' in filtered_data.columns:
+            filtered_data = filtered_data.drop('ドメイン', axis=1)
+        if 'has_fw_tag' in filtered_data.columns:
+            filtered_data = filtered_data.drop('has_fw_tag', axis=1)
+        if '_views' in filtered_data.columns:
+            filtered_data = filtered_data.drop('_views', axis=1)
+        
+        logger.info(f"[STEP 7 完了] <fw-タグフィルター: {original_count}行 → {len(filtered_data)}行")
         
         # 一時ファイルを削除
         os.remove(video_path)
@@ -290,13 +397,17 @@ def process_data():
         
         # 結果をJSON形式で返す
         result = {
-            'columns': result_df.columns.tolist(),
-            'data': result_df.to_dict(orient='records'),
-            'total_count': len(result_df)
+            'columns': filtered_data.columns.tolist(),
+            'data': filtered_data.to_dict(orient='records'),
+            'total_count': len(filtered_data),
+            'total_domains': pagination_result['total_domains'],
+            'current_page': pagination_result['current_page'],
+            'page_size': pagination_result['page_size'],
+            'has_next': pagination_result['has_next']
         }
         
         logger.info("="*60)
-        logger.info(f"検索成功: {len(result_df)}件の結果を返却")
+        logger.info(f"検索成功: {len(filtered_data)}件の結果を返却 (ページ {page}/{(pagination_result['total_domains'] + page_size - 1) // page_size})")
         logger.info("="*60)
         
         return jsonify(result)
