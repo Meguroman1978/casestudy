@@ -17,6 +17,10 @@ from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
+
+# 環境変数をロード
+load_dotenv()
 
 # ロギング設定
 logging.basicConfig(level=logging.DEBUG)
@@ -28,7 +32,9 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls'}
 
 # Google Sheets設定
-GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk/edit'
+GOOGLE_SHEET_ID = os.environ.get('GOOGLE_SHEET_ID', '')
+if not GOOGLE_SHEET_ID:
+    logger.warning("⚠️ GOOGLE_SHEET_ID not set in environment variables")
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 def allowed_file(filename):
@@ -40,7 +46,9 @@ def get_google_sheet_data():
         logger.info("[STEP 1] Google Sheetからデータを取得中...")
         # 公開されているシートの場合、認証なしで読み取り可能
         # CSVエクスポートURLを使用
-        sheet_id = '1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk'
+        sheet_id = GOOGLE_SHEET_ID
+        if not sheet_id:
+            raise ValueError("Google Sheet ID is not configured. Please set GOOGLE_SHEET_ID environment variable.")
         gid = '0'
         csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}'
         
@@ -146,30 +154,25 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         # 必要な列だけを抽出
         logger.info("[STEP 5] 結果データ整形中...")
         
-        # 必要な列を構築
+        # 必要な列を構築（会社名とビジネス名は削除）
         columns_to_extract = [
-            'Account: Account Name',
             'Account: Industry',
             'Account: Owner Territory',
             'Page Url',
             'Video Views'
         ]
         
-        # Channel NameとBusiness Nameがある場合は追加
+        # Channel Nameがある場合は追加（最初に配置）
         if 'Channel Name' in merged_df.columns:
-            columns_to_extract.insert(1, 'Channel Name')
-        if 'Business Name' in merged_df.columns:
-            columns_to_extract.insert(1, 'Business Name')
+            columns_to_extract.insert(0, 'Channel Name')
         
         result_df = merged_df[columns_to_extract].copy()
         
-        # 列名を日本語に変更
-        new_column_names = ['会社名']
-        if 'Business Name' in merged_df.columns:
-            new_column_names.append('ビジネス名')
+        # 列名を日本語に変更（会社名とビジネス名は含めない）
+        new_column_names = []
         if 'Channel Name' in merged_df.columns:
             new_column_names.append('チャンネル名')
-        new_column_names.extend(['業界名', '国', 'URL', '_views'])
+        new_column_names.extend(['業種', '国', 'URL', '_views'])
         
         result_df.columns = new_column_names
         
@@ -188,8 +191,8 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         logger.error(traceback.format_exc())
         return None
 
-def group_by_domain_and_paginate(result_df, page=1, page_size=20):
-    """Channel Name単位でグループ化してページング (デフォルト20件/ページ)"""
+def group_by_domain_and_paginate(result_df, page=1, page_size=5):
+    """Channel Name単位でグループ化してページング (デフォルト5件/ページ、各チャンネル最大3 URL)"""
     try:
         logger.info(f"[STEP 6] Channel Name単位でグループ化中... (ページ: {page}, サイズ: {page_size})")
         
@@ -200,18 +203,15 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=20):
         else:
             group_column = 'チャンネル名'
         
-        # グループ化の列を決定
+        # グループ化の列を決定（会社名とビジネス名は削除）
         agg_dict = {
-            '会社名': 'first',
-            '業界名': 'first',
+            '業種': 'first',
             '国': 'first',
             '_views': 'sum',
             'URL': 'count'
         }
         
-        # ビジネス名とチャンネル名がある場合
-        if 'ビジネス名' in result_df.columns:
-            agg_dict['ビジネス名'] = 'first'
+        # チャンネル名がある場合（グループ化対象でない場合のみ）
         if 'チャンネル名' in result_df.columns and group_column != 'チャンネル名':
             agg_dict['チャンネル名'] = 'first'
         
@@ -236,6 +236,9 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=20):
         
         # 視聴回数で降順ソート（チャンネル内）
         detailed_data = detailed_data.sort_values([group_column, '_views'], ascending=[True, False])
+        
+        # 各チャンネルのURL数を最大3に制限
+        detailed_data = detailed_data.groupby(group_column).head(3).reset_index(drop=True)
         
         return {
             'channel_summary': channel_summary,
@@ -386,7 +389,7 @@ def process_data():
         industry_filter = request.form.get('industry_filter', 'none')
         country = request.form.get('country', 'none')
         page = int(request.form.get('page', 1))
-        page_size = int(request.form.get('page_size', 20))  # デフォルトを20に変更
+        page_size = int(request.form.get('page_size', 5))  # デフォルトを5に変更（最大5チャンネル表示）
         
         logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, ページ={page}")
         
@@ -554,27 +557,139 @@ def translate_text(text, target_lang='en'):
     
     return text
 
+def search_logo_images(channel_name, count=3):
+    """Channel nameでロゴ画像を検索（OpenAI DALL-E検索機能を使用）"""
+    try:
+        from bs4 import BeautifulSoup
+        import urllib.parse
+        
+        logger.info(f"Searching logos for: {channel_name}")
+        
+        # Google画像検索のURL（スクレイピング）
+        search_query = f"{channel_name} logo"
+        encoded_query = urllib.parse.quote(search_query)
+        search_url = f"https://www.google.com/search?q={encoded_query}&tbm=isch"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 画像URLを抽出
+        logo_urls = []
+        img_tags = soup.find_all('img')
+        
+        for img in img_tags[:count + 5]:  # 余分に取得
+            img_url = img.get('src') or img.get('data-src')
+            if img_url and img_url.startswith('http') and len(logo_urls) < count:
+                # base64やデータURLは除外
+                if not img_url.startswith('data:'):
+                    logo_urls.append(img_url)
+        
+        logger.info(f"Found {len(logo_urls)} logo URLs")
+        return logo_urls[:count]
+        
+    except Exception as e:
+        logger.error(f"Logo search error: {e}")
+        logger.error(traceback.format_exc())
+        return []
+
+def crawl_and_analyze_website(url, language='ja'):
+    """WebクローラーでWebサイト情報を取得し、OpenAI APIで分析"""
+    try:
+        from bs4 import BeautifulSoup
+        
+        fallback = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
+        
+        # ウェブサイトをクロール
+        response = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+        html_content = response.text
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # テキストコンテンツを抽出（スクリプトやスタイルを除外）
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        text_content = soup.get_text()
+        # 空白を整理
+        lines = (line.strip() for line in text_content.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        # テキストが長すぎる場合は切り詰め（OpenAI APIのトークン制限のため）
+        if len(text) > 3000:
+            text = text[:3000]
+        
+        # OpenAI APIで要約
+        openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+        
+        if not openai_api_key:
+            logger.warning("OPENAI_API_KEY not set in environment variables")
+            return "Website analysis unavailable (API key not configured)" if language == 'en' else "ウェブサイト分析が利用できません（APIキーが未設定）"
+        
+        prompt = f"""以下のウェブサイトの内容を分析し、以下の情報を含む簡潔な要約（150-200文字）を作成してください：
+- 販売している商品・サービスの種類と特徴
+- ビジネスのポジショニングや独自性
+- 主な特徴や強み
+
+ウェブサイトの内容:
+{text}
+
+要約は{'日本語' if language == 'ja' else '英語'}で作成してください。"""
+
+        summary_response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {openai_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4o-mini',
+                'messages': [
+                    {'role': 'user', 'content': prompt}
+                ],
+                'max_tokens': 300,
+                'temperature': 0.7
+            },
+            timeout=30
+        )
+        
+        if summary_response.status_code == 200:
+            result = summary_response.json()
+            summary = result['choices'][0]['message']['content']
+            logger.info(f"Website summary generated: {summary[:100]}...")
+            return summary
+        else:
+            logger.error(f"OpenAI API error: {summary_response.status_code}")
+            logger.error(f"Response body: {summary_response.text[:500]}")
+            return fallback
+            
+    except Exception as e:
+        logger.error(f"Website crawl and analysis error: {e}")
+        logger.error(traceback.format_exc())
+        fallback = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
+        return fallback
+
 @app.route('/api/create-pptx', methods=['POST'])
 def create_pptx():
     """PPTXスライドを生成"""
     try:
         data = request.json
-        company_name = data.get('company_name', '')
-        business_name = data.get('business_name', '')
         channel_name = data.get('channel_name', '')
         industry = data.get('industry', '')
         country = data.get('country', '')
         url = data.get('url', '')
         language = data.get('language', 'ja')
         
-        logger.info(f"PPTX生成開始: Channel={channel_name}, Business={business_name}, 言語: {language}")
+        logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
         
         # 言語が英語の場合、日本語テキストを翻訳
         if language == 'en':
-            business_name = translate_text(business_name, 'en')
             channel_name = translate_text(channel_name, 'en')
             company_details = translate_text(website_info['description'], 'en')
         else:
@@ -588,15 +703,21 @@ def create_pptx():
         slide_index = 0 if language == 'ja' else 1
         slide = prs.slides[slide_index]
         
-        # プレースホルダーのテキストを置換
+        # フォールバックメッセージ
+        fallback_screenshot = '手動で画面キャプチャを貼り付けてください' if language == 'ja' else 'Please manually paste a screenshot here'
+        fallback_logo = '手動でロゴを貼り付けてください' if language == 'ja' else 'Please manually paste the logo here'
+        fallback_website = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
+        
+        # WebクローラーとOpenAI APIでWebsite descriptionを取得
+        website_description_enhanced = crawl_and_analyze_website(url, language) if url else fallback_website
+        
+        # プレースホルダーのテキストを置換（Business NameとCompany detailsは削除）
         replacements = {
             '{Business Country}': country,
             '{Account: Industry}': industry,
-            '{Business Name}': business_name,
             '{Channel Name}': channel_name,
             '{URL}': url,
-            '{Company details}': company_details[:200] if company_details else 'No details available',
-            '{Website description}': website_info['title'][:100] if website_info['title'] else ''
+            '{Website description}': website_description_enhanced
         }
         
         for shape in slide.shapes:
@@ -617,68 +738,110 @@ def create_pptx():
                         shape.text = new_text
         
         # スクリーンショットを取得して挿入
-        try:
-            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
-            screenshot_response = requests.get(screenshot_url, timeout=30)
-            
-            if screenshot_response.status_code == 200:
-                img_data = io.BytesIO(screenshot_response.content)
-                img = Image.open(img_data)
-                
-                # 画像を挿入する位置を探す
-                for shape in slide.shapes:
-                    if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                        left = shape.left
-                        top = shape.top
-                        width = shape.width
-                        height = shape.height
-                        
-                        # プレースホルダーを削除
-                        sp = shape.element
-                        sp.getparent().remove(sp)
-                        
-                        # 画像をリサイズして挿入
-                        slide.shapes.add_picture(img_data, left, top, width=width, height=height)
-                        break
-        except Exception as e:
-            logger.warning(f"スクリーンショット取得失敗: {e}")
+        screenshot_inserted = False
+        screenshot_api_token = os.environ.get('SCREENSHOT_API_TOKEN', '')
         
-        # ロゴを挿入
-        if website_info.get('logo_url'):
+        if not screenshot_api_token:
+            logger.warning("SCREENSHOT_API_TOKEN not set - skipping screenshot generation")
+        else:
             try:
-                logo_response = requests.get(website_info['logo_url'], timeout=10)
-                if logo_response.status_code == 200:
-                    logo_data = io.BytesIO(logo_response.content)
-                    logo_img = Image.open(logo_data)
+                screenshot_url = f"https://shot.screenshotapi.net/screenshot?token={screenshot_api_token}&url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
+                screenshot_response = requests.get(screenshot_url, timeout=30)
+                
+                if screenshot_response.status_code == 200:
+                    img_data = io.BytesIO(screenshot_response.content)
+                    img = Image.open(img_data)
                     
-                    # ロゴを挿入する位置を探す
+                    # 画像を挿入する位置を探す
                     for shape in slide.shapes:
-                        if hasattr(shape, "text") and '{Channel logo}' in shape.text:
+                        if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
                             left = shape.left
                             top = shape.top
-                            max_width = shape.width
-                            max_height = shape.height
+                            width = shape.width
+                            height = shape.height
                             
                             # プレースホルダーを削除
                             sp = shape.element
                             sp.getparent().remove(sp)
                             
-                            # アスペクト比を保持してリサイズ
-                            img_width, img_height = logo_img.size
-                            aspect = img_width / img_height
-                            
-                            if max_width / max_height > aspect:
-                                new_height = max_height
-                                new_width = int(max_height * aspect)
-                            else:
-                                new_width = max_width
-                                new_height = int(max_width / aspect)
-                            
-                            # 画像を挿入
-                            slide.shapes.add_picture(logo_data, left, top, width=new_width, height=new_height)
+                            # 画像をリサイズして挿入
+                            slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                            screenshot_inserted = True
                             break
+                else:
+                    logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
             except Exception as e:
-                logger.warning(f"ロゴ取得失敗: {e}")
+                logger.warning(f"スクリーンショット取得失敗: {e}")
+        
+        # スクリーンショットが挿入できなかった場合、フォールバックテキストを表示
+        if not screenshot_inserted:
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                    if hasattr(shape, "text_frame"):
+                        shape.text_frame.text = fallback_screenshot
+                    else:
+                        shape.text = fallback_screenshot
+                    break
+        
+        # 3つのロゴを検索して挿入
+        logo_urls = search_logo_images(channel_name, count=3)
+        logger.info(f"Found {len(logo_urls)} logo URLs for {channel_name}")
+        
+        # 各ロゴプレースホルダーを探して挿入
+        for logo_index in range(1, 4):  # 1, 2, 3
+            placeholder = f'{{Channel logo {logo_index}}}'
+            logo_inserted = False
+            
+            # 対応するロゴURLがある場合
+            if logo_index <= len(logo_urls):
+                logo_url = logo_urls[logo_index - 1]
+                try:
+                    logo_response = requests.get(logo_url, timeout=10)
+                    if logo_response.status_code == 200:
+                        logo_data = io.BytesIO(logo_response.content)
+                        logo_img = Image.open(logo_data)
+                        
+                        # ロゴを挿入する位置を探す
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and placeholder in shape.text:
+                                left = shape.left
+                                top = shape.top
+                                max_width = shape.width
+                                max_height = shape.height
+                                
+                                # プレースホルダーを削除
+                                sp = shape.element
+                                sp.getparent().remove(sp)
+                                
+                                # アスペクト比を保持してリサイズ
+                                img_width, img_height = logo_img.size
+                                aspect = img_width / img_height
+                                
+                                if max_width / max_height > aspect:
+                                    new_height = max_height
+                                    new_width = int(max_height * aspect)
+                                else:
+                                    new_width = max_width
+                                    new_height = int(max_width / aspect)
+                                
+                                # 画像を挿入
+                                slide.shapes.add_picture(logo_data, left, top, width=new_width, height=new_height)
+                                logo_inserted = True
+                                logger.info(f"Logo {logo_index} inserted successfully")
+                                break
+                except Exception as e:
+                    logger.warning(f"ロゴ{logo_index}取得失敗: {e}")
+            
+            # ロゴが挿入できなかった場合、フォールバックテキストを表示
+            if not logo_inserted:
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and placeholder in shape.text:
+                        if hasattr(shape, "text_frame"):
+                            shape.text_frame.text = fallback_logo
+                        else:
+                            shape.text = fallback_logo
+                        logger.info(f"Logo {logo_index} fallback text inserted")
+                        break
         
         # 選択したスライド以外を削除
         slides_to_delete = []
@@ -697,13 +860,13 @@ def create_pptx():
         prs.save(pptx_io)
         pptx_io.seek(0)
         
-        logger.info(f"PPTX生成完了: {company_name}")
+        logger.info(f"PPTX生成完了: {channel_name}")
         
         return send_file(
             pptx_io,
             mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
             as_attachment=True,
-            download_name=f'{company_name}_Casestudy.pptx'
+            download_name=f'{channel_name}_Casestudy.pptx'
         )
     
     except Exception as e:
@@ -722,11 +885,11 @@ def export_excel():
         
         logger.info(f"Excelエクスポート開始: {len(rows)}行, 言語: {language}")
         
-        # 列名を言語に応じて変換
+        # 列名を言語に応じて変換（会社名とビジネス名は削除済み）
         if language == 'en':
             column_mapping = {
-                '会社名': 'Company Name',
-                '業界名': 'Industry',
+                'チャンネル名': 'Channel Name',
+                '業種': 'Industry',
                 '国': 'Country',
                 'URL': 'URL'
             }
@@ -787,4 +950,6 @@ def export_excel():
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV', 'production') != 'production'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)

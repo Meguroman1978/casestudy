@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: video-case-study-analyzer
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        sync: false
+      - key: SCREENSHOT_API_TOKEN
+        sync: false
