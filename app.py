@@ -96,10 +96,18 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         
         logger.info("Business Idのデータ型を統一完了")
         
-        # Business Idをキーとしてマージ
+        # Business Idをキーとしてマージ（Channel Name, Business Nameも含める）
         logger.info("[STEP 3] データマージ実行中...")
+        
+        # Google Sheetに必要な列があるか確認
+        available_cols = ['Business Id', 'Account: Account Name', 'Account: Industry', 'Account: Owner Territory']
+        if 'Channel Name' in sheet_df.columns:
+            available_cols.append('Channel Name')
+        if 'Business Name' in sheet_df.columns:
+            available_cols.append('Business Name')
+        
         merged_df = main_df.merge(
-            sheet_df[['Business Id', 'Account: Account Name', 'Account: Industry', 'Account: Owner Territory']],
+            sheet_df[available_cols],
             on='Business Id',
             how='left'
         )
@@ -136,16 +144,33 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         
         # 必要な列だけを抽出
         logger.info("[STEP 5] 結果データ整形中...")
-        result_df = merged_df[[
+        
+        # 必要な列を構築
+        columns_to_extract = [
             'Account: Account Name',
             'Account: Industry',
             'Account: Owner Territory',
             'Page Url',
             'Video Views'
-        ]].copy()
+        ]
         
-        # 列名を日本語に変更（視聴回数は内部計算用に保持、表示時は除外）
-        result_df.columns = ['会社名', '業界名', '国', 'URL', '_views']
+        # Channel NameとBusiness Nameがある場合は追加
+        if 'Channel Name' in merged_df.columns:
+            columns_to_extract.insert(1, 'Channel Name')
+        if 'Business Name' in merged_df.columns:
+            columns_to_extract.insert(1, 'Business Name')
+        
+        result_df = merged_df[columns_to_extract].copy()
+        
+        # 列名を日本語に変更
+        new_column_names = ['会社名']
+        if 'Business Name' in merged_df.columns:
+            new_column_names.append('ビジネス名')
+        if 'Channel Name' in merged_df.columns:
+            new_column_names.append('チャンネル名')
+        new_column_names.extend(['業界名', '国', 'URL', '_views'])
+        
+        result_df.columns = new_column_names
         
         # NaNを空文字列に変換
         result_df = result_df.fillna('')
@@ -163,48 +188,62 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         return None
 
 def group_by_domain_and_paginate(result_df, page=1, page_size=10):
-    """ドメインごとにグループ化してページネーションを適用"""
+    """Channel Name単位でグループ化してTop 20に絞る"""
     try:
-        logger.info(f"[STEP 6] ドメイン単位でグループ化中... (ページ: {page}, サイズ: {page_size})")
+        logger.info(f"[STEP 6] Channel Name単位でグループ化中... (ページ: {page}, サイズ: {page_size})")
         
-        # ドメインごとに視聴回数を集計
-        domain_summary = result_df.groupby('ドメイン').agg({
+        # Channel Name列が存在するか確認
+        if 'チャンネル名' not in result_df.columns:
+            logger.warning("チャンネル名列が存在しません。ドメインでグループ化します。")
+            group_column = 'ドメイン'
+        else:
+            group_column = 'チャンネル名'
+        
+        # グループ化の列を決定
+        agg_dict = {
             '会社名': 'first',
             '業界名': 'first',
             '国': 'first',
             '_views': 'sum',
-            'URL': 'count'  # URL数をカウント
-        }).reset_index()
+            'URL': 'count'
+        }
         
-        domain_summary.columns = ['ドメイン', '会社名', '業界名', '国', '合計視聴回数', 'URL数']
+        # ビジネス名とチャンネル名がある場合
+        if 'ビジネス名' in result_df.columns:
+            agg_dict['ビジネス名'] = 'first'
+        if 'チャンネル名' in result_df.columns and group_column != 'チャンネル名':
+            agg_dict['チャンネル名'] = 'first'
         
-        # 合計視聴回数で降順ソート
-        domain_summary = domain_summary.sort_values('合計視聴回数', ascending=False)
+        # グループ化して集計
+        channel_summary = result_df.groupby(group_column).agg(agg_dict).reset_index()
         
-        logger.info(f"グループ化完了: {len(domain_summary)}ドメイン")
+        # 合計視聴回数で降順ソート、Top 20に絞る
+        channel_summary = channel_summary.sort_values('_views', ascending=False).head(20)
+        
+        logger.info(f"グループ化完了: Top {len(channel_summary)}件")
         
         # ページネーション適用
         start_idx = (page - 1) * page_size
         end_idx = start_idx + page_size
-        paginated_domains = domain_summary.iloc[start_idx:end_idx]
+        paginated_channels = channel_summary.iloc[start_idx:end_idx]
         
-        logger.info(f"ページ {page}: {len(paginated_domains)}ドメインを返却")
+        logger.info(f"ページ {page}: {len(paginated_channels)}件を返却")
         
-        # ページネーション対象のドメインの詳細データを取得
-        domain_list = paginated_domains['ドメイン'].tolist()
-        detailed_data = result_df[result_df['ドメイン'].isin(domain_list)].copy()
+        # ページネーション対象のチャンネルの詳細データを取得
+        channel_list = paginated_channels[group_column].tolist()
+        detailed_data = result_df[result_df[group_column].isin(channel_list)].copy()
         
-        # 視聴回数で降順ソート（ドメイン内）
-        detailed_data = detailed_data.sort_values(['ドメイン', '_views'], ascending=[True, False])
+        # 視聴回数で降順ソート（チャンネル内）
+        detailed_data = detailed_data.sort_values([group_column, '_views'], ascending=[True, False])
         
         return {
-            'domain_summary': domain_summary,
-            'paginated_domains': paginated_domains,
+            'channel_summary': channel_summary,
+            'paginated_channels': paginated_channels,
             'detailed_data': detailed_data,
-            'total_domains': len(domain_summary),
+            'total_channels': len(channel_summary),
             'current_page': page,
             'page_size': page_size,
-            'has_next': end_idx < len(domain_summary)
+            'has_next': end_idx < len(channel_summary)
         }
     except Exception as e:
         logger.error(f"[エラー] ドメイングループ化失敗: {e}")
@@ -436,18 +475,81 @@ def process_data():
         logger.error("="*60)
         return jsonify({'error': f'エラーが発生しました: {str(e)}'}), 500
 
+def extract_website_info(url):
+    """ウェブサイトからメタ情報を抽出"""
+    try:
+        response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        html_content = response.text
+        
+        # メタタグから情報を抽出
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # 会社概要（descriptionメタタグから）
+        description_tag = soup.find('meta', attrs={'name': 'description'}) or soup.find('meta', attrs={'property': 'og:description'})
+        description = description_tag.get('content', '') if description_tag else ''
+        
+        # タイトル
+        title = soup.find('title').get_text() if soup.find('title') else ''
+        
+        # ロゴ画像URL
+        logo_url = None
+        logo_tag = soup.find('meta', attrs={'property': 'og:image'}) or soup.find('link', attrs={'rel': 'icon'}) or soup.find('link', attrs={'rel': 'apple-touch-icon'})
+        if logo_tag:
+            logo_url = logo_tag.get('content') or logo_tag.get('href')
+            if logo_url and not logo_url.startswith('http'):
+                from urllib.parse import urljoin
+                logo_url = urljoin(url, logo_url)
+        
+        return {
+            'title': title,
+            'description': description,
+            'logo_url': logo_url
+        }
+    except Exception as e:
+        logger.error(f"ウェブサイト情報抽出エラー: {e}")
+        return {'title': '', 'description': '', 'logo_url': None}
+
+def translate_text(text, target_lang='en'):
+    """テキストを翻訳（簡易版 - 実際にはGoogle Translate APIなどを使用）"""
+    # ここでは簡易的に、日本語が含まれている場合のみ翻訳を試みる
+    if not text or target_lang == 'ja':
+        return text
+    
+    # 日本語が含まれているか確認
+    import re
+    if re.search(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]', text):
+        # 実際の実装ではGoogle Translate APIを使用
+        # ここでは元のテキストを返す（翻訳APIを実装する場合は置き換え）
+        return text
+    
+    return text
+
 @app.route('/api/create-pptx', methods=['POST'])
 def create_pptx():
     """PPTXスライドを生成"""
     try:
         data = request.json
         company_name = data.get('company_name', '')
+        business_name = data.get('business_name', '')
+        channel_name = data.get('channel_name', '')
         industry = data.get('industry', '')
         country = data.get('country', '')
         url = data.get('url', '')
         language = data.get('language', 'ja')
         
-        logger.info(f"PPTX生成開始: {company_name}, 言語: {language}")
+        logger.info(f"PPTX生成開始: Channel={channel_name}, Business={business_name}, 言語: {language}")
+        
+        # ウェブサイト情報を抽出
+        website_info = extract_website_info(url)
+        
+        # 言語が英語の場合、日本語テキストを翻訳
+        if language == 'en':
+            business_name = translate_text(business_name, 'en')
+            channel_name = translate_text(channel_name, 'en')
+            company_details = translate_text(website_info['description'], 'en')
+        else:
+            company_details = website_info['description']
         
         # テンプレートを読み込む
         template_path = os.path.join(os.path.dirname(__file__), 'Template.pptx')
@@ -458,33 +560,45 @@ def create_pptx():
         slide = prs.slides[slide_index]
         
         # プレースホルダーのテキストを置換
+        replacements = {
+            '{Business Country}': country,
+            '{Account: Industry}': industry,
+            '{Business Name}': business_name,
+            '{Channel Name}': channel_name,
+            '{URL}': url,
+            '{Company details}': company_details[:200] if company_details else 'No details available',
+            '{Website description}': website_info['title'][:100] if website_info['title'] else ''
+        }
+        
         for shape in slide.shapes:
             if hasattr(shape, "text"):
                 original_text = shape.text
-                # プレースホルダーを置換
-                if '{国名}' in original_text or '{Country Name}' in original_text:
-                    shape.text = original_text.replace('{国名}', country).replace('{Country Name}', country)
-                elif '{業種名}' in original_text or '{Industry}' in original_text:
-                    shape.text = original_text.replace('{業種名}', industry).replace('{Industry}', industry)
-                elif '{Channel Name}' in original_text:
-                    shape.text = original_text.replace('{Channel Name}', company_name)
-                elif '{Channel Name}様の事例' in original_text:
-                    shape.text = original_text.replace('{Channel Name}', company_name)
+                new_text = original_text
+                
+                # すべてのプレースホルダーを置換
+                for placeholder, value in replacements.items():
+                    if placeholder in new_text:
+                        new_text = new_text.replace(placeholder, value)
+                
+                # テキストが変更された場合のみ更新
+                if new_text != original_text:
+                    if hasattr(shape, "text_frame"):
+                        shape.text_frame.text = new_text
+                    else:
+                        shape.text = new_text
         
         # スクリーンショットを取得して挿入
         try:
-            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={requests.utils.quote(url)}&width=800&height=600&output=image&file_type=png&wait_for_event=load"
+            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
             screenshot_response = requests.get(screenshot_url, timeout=30)
             
             if screenshot_response.status_code == 200:
-                # 画像を一時ファイルとして保存
                 img_data = io.BytesIO(screenshot_response.content)
                 img = Image.open(img_data)
                 
-                # 画像を挿入する位置を探す（スクリーンショット挿入箇所プレースホルダー）
+                # 画像を挿入する位置を探す
                 for shape in slide.shapes:
-                    if hasattr(shape, "text") and ('{スクリーンショット挿入箇所}' in shape.text or '{Insert Screenshot here}' in shape.text):
-                        # プレースホルダーの位置とサイズを取得
+                    if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
                         left = shape.left
                         top = shape.top
                         width = shape.width
@@ -494,11 +608,48 @@ def create_pptx():
                         sp = shape.element
                         sp.getparent().remove(sp)
                         
-                        # 画像を挿入
+                        # 画像をリサイズして挿入
                         slide.shapes.add_picture(img_data, left, top, width=width, height=height)
                         break
         except Exception as e:
             logger.warning(f"スクリーンショット取得失敗: {e}")
+        
+        # ロゴを挿入
+        if website_info.get('logo_url'):
+            try:
+                logo_response = requests.get(website_info['logo_url'], timeout=10)
+                if logo_response.status_code == 200:
+                    logo_data = io.BytesIO(logo_response.content)
+                    logo_img = Image.open(logo_data)
+                    
+                    # ロゴを挿入する位置を探す
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and '{Channel logo}' in shape.text:
+                            left = shape.left
+                            top = shape.top
+                            max_width = shape.width
+                            max_height = shape.height
+                            
+                            # プレースホルダーを削除
+                            sp = shape.element
+                            sp.getparent().remove(sp)
+                            
+                            # アスペクト比を保持してリサイズ
+                            img_width, img_height = logo_img.size
+                            aspect = img_width / img_height
+                            
+                            if max_width / max_height > aspect:
+                                new_height = max_height
+                                new_width = int(max_height * aspect)
+                            else:
+                                new_width = max_width
+                                new_height = int(max_width / aspect)
+                            
+                            # 画像を挿入
+                            slide.shapes.add_picture(logo_data, left, top, width=new_width, height=new_height)
+                            break
+            except Exception as e:
+                logger.warning(f"ロゴ取得失敗: {e}")
         
         # 選択したスライド以外を削除
         slides_to_delete = []

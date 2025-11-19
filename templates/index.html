@@ -6,17 +6,43 @@
     <title id="pageTitle">活用事例検索ツール / Use Case Search Tool</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
+            border-top: 4px solid #667eea;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        .gradient-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .gradient-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .input-modern {
+            transition: all 0.3s ease;
+            border: 2px solid #e2e8f0;
+        }
+        .input-modern:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
         /* グループ化されたドメイン行 */
@@ -69,8 +95,8 @@
 <body class="bg-gray-50">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- ヘッダー -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2" data-lang-key="page_title">活用事例検索ツール / Use Case Search Tool</h1>
+        <div class="glass-card rounded-2xl shadow-2xl p-8 mb-8 border-t-4 border-purple-500">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4" data-lang-key="page_title">活用事例検索ツール / Use Case Search Tool</h1>
             <div class="text-gray-600 space-y-2">
                 <p class="font-semibold" data-lang-key="operation_procedure">操作手順 / Operation Procedure:</p>
                 <ol class="list-decimal list-inside space-y-1 ml-4">
@@ -82,8 +108,13 @@
         </div>
 
         <!-- 入力フォーム -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">データアップロード / Data Upload</h2>
+        <div class="glass-card rounded-2xl shadow-2xl p-8 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                <svg class="w-8 h-8 mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                </svg>
+                データアップロード / Data Upload
+            </h2>
             
             <form id="uploadForm" class="space-y-4">
                 <!-- 言語設定 -->
@@ -292,7 +323,7 @@
             group_by_domain: { ja: 'ドメインごとにグループ化', en: 'Group by Domain' },
             load_more: { ja: '次の10件を見る', en: 'Show Next 10' },
             download_csv: { ja: 'CSVでダウンロード', en: 'Download CSV' },
-            company_name: { ja: '会社名', en: 'Company Name' },
+            channel_name: { ja: 'チャンネル名', en: 'Channel Name' },
             industry: { ja: '業界名', en: 'Industry' },
             country_col: { ja: '国', en: 'Country' },
             url_col: { ja: 'URL', en: 'URL' },
@@ -300,7 +331,7 @@
             total_domains: { ja: '全', en: '' },
             domains_suffix: { ja: 'ドメイン', en: 'total domains' },
             no_results: { ja: '該当するカテゴリーが見つかりません', en: 'No matching categories found' },
-            operation_procedure: { ja: '操作手順:', en: 'Operation Procedure:' },
+            operation_procedure: { ja: '操作手順:', en: 'How to use this tool:' },
             instruction_step1: { 
                 ja: 'Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください', 
                 en: 'Download the <a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">"extented_Find Played URL (Short Videos & Live Streams)"</a> Sigma report, specifically the "Top Video Views per URL" and "Top Live Stream Views per URL" reports' 
@@ -808,6 +839,8 @@
             // 列名の日英対応マッピング（視聴回数は除外）
             const columnMapping = {
                 '会社名': currentLanguage === 'ja' ? '会社名' : 'Company Name',
+                'ビジネス名': currentLanguage === 'ja' ? 'ビジネス名' : 'Business Name',
+                'チャンネル名': currentLanguage === 'ja' ? 'チャンネル名' : 'Channel Name',
                 '業界名': currentLanguage === 'ja' ? '業界名' : 'Industry',
                 '国': currentLanguage === 'ja' ? '国' : 'Country',
                 'URL': 'URL'
@@ -837,26 +870,24 @@
             }
             
             if (groupByDomain) {
-                // ドメインごとにグループ化
-                const domainGroups = {};
+                // Channel Nameごとにグループ化（存在しない場合はドメイン）
+                const channelGroups = {};
                 data.data.forEach(row => {
-                    const domain = extractDomain(row['URL']);
-                    if (!domainGroups[domain]) {
-                        domainGroups[domain] = [];
+                    const groupKey = row['チャンネル名'] || extractDomain(row['URL']);
+                    if (!channelGroups[groupKey]) {
+                        channelGroups[groupKey] = [];
                     }
-                    domainGroups[domain].push(row);
+                    channelGroups[groupKey].push(row);
                 });
                 
                 // グループ化したデータを表示
-                Object.keys(domainGroups).forEach((domain, groupIndex) => {
-                    const rows = domainGroups[domain];
-                    // 視聴回数は内部計算のみに使用（表示しない）
-                    // const totalViews = rows.reduce((sum, row) => sum + (parseFloat(row['視聴回数']) || 0), 0);
+                Object.keys(channelGroups).forEach((channelKey, groupIndex) => {
+                    const rows = channelGroups[channelKey];
                     
                     // グループヘッダー行
                     const headerTr = document.createElement('tr');
                     headerTr.className = 'domain-group-header';
-                    headerTr.dataset.domain = domain;
+                    headerTr.dataset.channel = channelKey;
                     
                     // 展開アイコン
                     const expandTd = document.createElement('td');
@@ -864,29 +895,21 @@
                     expandTd.innerHTML = '<span class="expand-icon inline-block">▶</span>';
                     headerTr.appendChild(expandTd);
                     
-                    // 会社名 (最初の行から取得)
-                    const companyTd = document.createElement('td');
-                    companyTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
-                    companyTd.textContent = rows[0]['会社名'];
-                    headerTr.appendChild(companyTd);
-                    
-                    // 業界名
-                    const industryTd = document.createElement('td');
-                    industryTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
-                    industryTd.textContent = rows[0]['業界名'];
-                    headerTr.appendChild(industryTd);
-                    
-                    // 国
-                    const countryTd = document.createElement('td');
-                    countryTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
-                    countryTd.textContent = rows[0]['国'];
-                    headerTr.appendChild(countryTd);
-                    
-                    // ドメイン
-                    const domainTd = document.createElement('td');
-                    domainTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
-                    domainTd.textContent = `${domain} (${rows.length}件)`;
-                    headerTr.appendChild(domainTd);
+                    // 各列のヘッダーを動的に生成
+                    data.columns.forEach(col => {
+                        const td = document.createElement('td');
+                        td.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
+                        
+                        if (col === 'URL') {
+                            td.textContent = `(${rows.length}件のURL)`;
+                        } else if (col === 'チャンネル名') {
+                            td.textContent = channelKey;
+                        } else {
+                            td.textContent = rows[0][col] || '';
+                        }
+                        
+                        headerTr.appendChild(td);
+                    });
                     
                     // 合計視聴回数（表示から除外）
                     // const viewsTd = document.createElement('td');
@@ -896,7 +919,7 @@
                     
                     // クリックイベント
                     headerTr.addEventListener('click', function() {
-                        const detailRows = document.querySelectorAll(`tr.domain-detail-row[data-domain="${domain}"]`);
+                        const detailRows = document.querySelectorAll(`tr.domain-detail-row[data-channel="${channelKey}"]`);
                         const expandIcon = this.querySelector('.expand-icon');
                         detailRows.forEach(row => row.classList.toggle('expanded'));
                         expandIcon.classList.toggle('expanded');
@@ -908,7 +931,7 @@
                     rows.forEach((row, rowIndex) => {
                         const detailTr = document.createElement('tr');
                         detailTr.className = 'domain-detail-row';
-                        detailTr.dataset.domain = domain;
+                        detailTr.dataset.channel = channelKey;
                         
                         // 空のセル（展開アイコンの列）
                         const emptyTd = document.createElement('td');
@@ -1020,7 +1043,7 @@
         
         // スライド作成関数
         async function createPptxSlide(rowData) {
-            try {
+            try:
                 showLoading();
                 
                 const response = await fetch('/api/create-pptx', {
@@ -1030,6 +1053,8 @@
                     },
                     body: JSON.stringify({
                         company_name: rowData['会社名'],
+                        business_name: rowData['ビジネス名'] || rowData['会社名'],
+                        channel_name: rowData['チャンネル名'] || rowData['会社名'],
                         industry: rowData['業界名'],
                         country: rowData['国'],
                         url: rowData['URL'],
