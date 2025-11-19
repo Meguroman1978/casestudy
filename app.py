@@ -4,12 +4,18 @@ import logging
 import requests
 import re
 import json
+import io
 from urllib.parse import urlparse
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from werkzeug.utils import secure_filename
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from PIL import Image
+import openpyxl
+from openpyxl.styles import Font, Alignment, PatternFill
 
 # ロギング設定
 logging.basicConfig(level=logging.DEBUG)
@@ -429,6 +435,175 @@ def process_data():
         logger.error(traceback.format_exc())
         logger.error("="*60)
         return jsonify({'error': f'エラーが発生しました: {str(e)}'}), 500
+
+@app.route('/api/create-pptx', methods=['POST'])
+def create_pptx():
+    """PPTXスライドを生成"""
+    try:
+        data = request.json
+        company_name = data.get('company_name', '')
+        industry = data.get('industry', '')
+        country = data.get('country', '')
+        url = data.get('url', '')
+        language = data.get('language', 'ja')
+        
+        logger.info(f"PPTX生成開始: {company_name}, 言語: {language}")
+        
+        # テンプレートを読み込む
+        template_path = os.path.join(os.path.dirname(__file__), 'Template.pptx')
+        prs = Presentation(template_path)
+        
+        # 言語に応じてスライドを選択（0: 日本語, 1: 英語）
+        slide_index = 0 if language == 'ja' else 1
+        slide = prs.slides[slide_index]
+        
+        # プレースホルダーのテキストを置換
+        for shape in slide.shapes:
+            if hasattr(shape, "text"):
+                original_text = shape.text
+                # プレースホルダーを置換
+                if '{国名}' in original_text or '{Country Name}' in original_text:
+                    shape.text = original_text.replace('{国名}', country).replace('{Country Name}', country)
+                elif '{業種名}' in original_text or '{Industry}' in original_text:
+                    shape.text = original_text.replace('{業種名}', industry).replace('{Industry}', industry)
+                elif '{Channel Name}' in original_text:
+                    shape.text = original_text.replace('{Channel Name}', company_name)
+                elif '{Channel Name}様の事例' in original_text:
+                    shape.text = original_text.replace('{Channel Name}', company_name)
+        
+        # スクリーンショットを取得して挿入
+        try:
+            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={requests.utils.quote(url)}&width=800&height=600&output=image&file_type=png&wait_for_event=load"
+            screenshot_response = requests.get(screenshot_url, timeout=30)
+            
+            if screenshot_response.status_code == 200:
+                # 画像を一時ファイルとして保存
+                img_data = io.BytesIO(screenshot_response.content)
+                img = Image.open(img_data)
+                
+                # 画像を挿入する位置を探す（スクリーンショット挿入箇所プレースホルダー）
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and ('{スクリーンショット挿入箇所}' in shape.text or '{Insert Screenshot here}' in shape.text):
+                        # プレースホルダーの位置とサイズを取得
+                        left = shape.left
+                        top = shape.top
+                        width = shape.width
+                        height = shape.height
+                        
+                        # プレースホルダーを削除
+                        sp = shape.element
+                        sp.getparent().remove(sp)
+                        
+                        # 画像を挿入
+                        slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                        break
+        except Exception as e:
+            logger.warning(f"スクリーンショット取得失敗: {e}")
+        
+        # 選択したスライド以外を削除
+        slides_to_delete = []
+        for i, s in enumerate(prs.slides):
+            if i != slide_index:
+                slides_to_delete.append(i)
+        
+        # 逆順で削除（インデックスの変更を避けるため）
+        for idx in reversed(slides_to_delete):
+            rId = prs.slides._sldIdLst[idx].rId
+            prs.part.drop_rel(rId)
+            del prs.slides._sldIdLst[idx]
+        
+        # メモリ上にPPTXを保存
+        pptx_io = io.BytesIO()
+        prs.save(pptx_io)
+        pptx_io.seek(0)
+        
+        logger.info(f"PPTX生成完了: {company_name}")
+        
+        return send_file(
+            pptx_io,
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            as_attachment=True,
+            download_name=f'{company_name}_Casestudy.pptx'
+        )
+    
+    except Exception as e:
+        logger.error(f"PPTX生成エラー: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/export-excel', methods=['POST'])
+def export_excel():
+    """Excelファイルをエクスポート"""
+    try:
+        data = request.json
+        rows = data.get('data', [])
+        columns = data.get('columns', [])
+        language = data.get('language', 'ja')
+        
+        logger.info(f"Excelエクスポート開始: {len(rows)}行, 言語: {language}")
+        
+        # 列名を言語に応じて変換
+        if language == 'en':
+            column_mapping = {
+                '会社名': 'Company Name',
+                '業界名': 'Industry',
+                '国': 'Country',
+                'URL': 'URL'
+            }
+            translated_columns = [column_mapping.get(col, col) for col in columns]
+        else:
+            translated_columns = columns
+        
+        # DataFrameを作成
+        df = pd.DataFrame(rows, columns=columns)
+        df.columns = translated_columns
+        
+        # Excelファイルを作成
+        excel_io = io.BytesIO()
+        with pd.ExcelWriter(excel_io, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Results', index=False)
+            
+            # スタイルを適用
+            workbook = writer.book
+            worksheet = writer.sheets['Results']
+            
+            # ヘッダー行のスタイル
+            header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+            header_font = Font(bold=True, color='FFFFFF')
+            
+            for cell in worksheet[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = Alignment(horizontal='center', vertical='center')
+            
+            # 列幅を自動調整
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        excel_io.seek(0)
+        
+        logger.info(f"Excelエクスポート完了: {len(rows)}行")
+        
+        return send_file(
+            excel_io,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='analysis_result.xlsx'
+        )
+    
+    except Exception as e:
+        logger.error(f"Excelエクスポートエラー: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

@@ -18,26 +18,7 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        /* ポップアップスタイル */
-        .screenshot-popup {
-            display: none;
-            position: absolute;
-            z-index: 1000;
-            background: white;
-            border: 2px solid #3b82f6;
-            border-radius: 8px;
-            padding: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            max-width: 400px;
-        }
-        .screenshot-popup img {
-            max-width: 100%;
-            height: auto;
-            border-radius: 4px;
-        }
-        .screenshot-popup.active {
-            display: block;
-        }
+
         /* グループ化されたドメイン行 */
         .domain-group-header {
             cursor: pointer;
@@ -260,12 +241,17 @@
 
             <!-- ボタン群 -->
             <div class="mt-4 flex justify-between items-center gap-4">
-                <button id="loadMoreBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hidden">
-                    <span data-lang-key="load_more">次の10件を見る / Show Next 10</span>
-                </button>
-                <button id="downloadBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    <span data-lang-key="download_csv">CSVでダウンロード / Download CSV</span>
-                </button>
+                <div class="flex gap-2">
+                    <button id="downloadCsvBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <span data-lang-key="download_csv">CSVダウンロード</span>
+                    </button>
+                    <button id="downloadExcelBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <span data-lang-key="download_excel">Excelダウンロード</span>
+                    </button>
+                    <button id="loadMoreBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hidden">
+                        <span data-lang-key="next_10_sites">次の10件を見る</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -324,9 +310,15 @@
                 en: 'Upload the downloaded data to the [Data Upload] section' 
             },
             instruction_step3: { 
-                ja: '業種と国を選択し、[検索]ボタンをクリックしてください', 
-                en: 'Select an industry and country, then click the [Search] button' 
-            }
+                ja: 'カテゴリー検索または業種・国を選択し、[検索]ボタンをクリックしてください', 
+                en: 'Use category search or select industry and country, then click the [Search] button' 
+            },
+            select_file: { ja: 'ファイルを選択', en: 'Select File' },
+            download_format: { ja: 'ダウンロード形式', en: 'Download Format' },
+            download_csv: { ja: 'CSVダウンロード', en: 'Download CSV' },
+            download_excel: { ja: 'Excelダウンロード', en: 'Download Excel' },
+            next_10_sites: { ja: '次の10件を見る', en: 'Next 10 Sites' },
+            create_slide: { ja: 'スライド作成', en: 'Create Slide' }
         };
         
         // 言語を切り替える関数
@@ -928,18 +920,24 @@
                             td.className = 'px-6 py-4 text-sm text-gray-700';
                             
                             if (col === 'URL') {
+                                const urlContainer = document.createElement('div');
+                                urlContainer.className = 'flex items-center gap-2';
+                                
                                 const link = document.createElement('a');
                                 link.href = row[col];
                                 link.target = '_blank';
-                                link.className = 'text-blue-600 hover:text-blue-800 hover:underline relative url-with-screenshot';
+                                link.className = 'text-blue-600 hover:text-blue-800 hover:underline';
                                 link.textContent = row[col];
-                                link.dataset.url = row[col];
                                 
-                                // マウスオーバーイベント (要件5)
-                                link.addEventListener('mouseenter', handleUrlMouseEnter);
-                                link.addEventListener('mouseleave', handleUrlMouseLeave);
+                                const createSlideBtn = document.createElement('button');
+                                createSlideBtn.className = 'px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700';
+                                createSlideBtn.textContent = translations.create_slide[currentLanguage];
+                                createSlideBtn.setAttribute('data-lang-key', 'create_slide');
+                                createSlideBtn.onclick = () => createPptxSlide(row);
                                 
-                                td.appendChild(link);
+                                urlContainer.appendChild(link);
+                                urlContainer.appendChild(createSlideBtn);
+                                td.appendChild(urlContainer);
                             } else {
                                 td.textContent = row[col];
                             }
@@ -961,18 +959,24 @@
                         td.className = 'px-6 py-4 text-sm text-gray-900';
                         
                         if (col === 'URL') {
+                            const urlContainer = document.createElement('div');
+                            urlContainer.className = 'flex items-center gap-2';
+                            
                             const link = document.createElement('a');
                             link.href = row[col];
                             link.target = '_blank';
-                            link.className = 'text-blue-600 hover:text-blue-800 hover:underline relative url-with-screenshot';
+                            link.className = 'text-blue-600 hover:text-blue-800 hover:underline';
                             link.textContent = row[col];
-                            link.dataset.url = row[col];
                             
-                            // マウスオーバーイベント (要件5)
-                            link.addEventListener('mouseenter', handleUrlMouseEnter);
-                            link.addEventListener('mouseleave', handleUrlMouseLeave);
+                            const createSlideBtn = document.createElement('button');
+                            createSlideBtn.className = 'px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700';
+                            createSlideBtn.textContent = translations.create_slide[currentLanguage];
+                            createSlideBtn.setAttribute('data-lang-key', 'create_slide');
+                            createSlideBtn.onclick = () => createPptxSlide(row);
                             
-                            td.appendChild(link);
+                            urlContainer.appendChild(link);
+                            urlContainer.appendChild(createSlideBtn);
+                            td.appendChild(urlContainer);
                         } else {
                             td.textContent = row[col];
                         }
@@ -1014,87 +1018,43 @@
             resultsDiv.classList.remove('hidden');
         }
         
-        // URL マウスオーバー時のスクリーンショット表示 (要件5)
-        let screenshotPopup = null;
-        let popupTimeout = null;
-        
-        function handleUrlMouseEnter(e) {
-            const url = e.target.dataset.url;
-            
-            // 500ms後にポップアップを表示
-            popupTimeout = setTimeout(async () => {
-                try {
-                    // スクリーンショットAPIを呼び出し
-                    const response = await fetch(`/api/check-fw-tag?url=${encodeURIComponent(url)}`);
-                    const data = await response.json();
-                    
-                    if (data.has_fw_tag && data.screenshot_url) {
-                        // ポップアップを作成
-                        if (!screenshotPopup) {
-                            screenshotPopup = document.createElement('div');
-                            screenshotPopup.className = 'screenshot-popup';
-                            document.body.appendChild(screenshotPopup);
-                        }
-                        
-                        // ローディングメッセージを表示
-                        screenshotPopup.innerHTML = `
-                            <div class="text-xs text-gray-600 mb-2">
-                                &lt;fw- tag detected / &lt;fw-タグ検出
-                            </div>
-                            <div class="flex items-center justify-center p-4">
-                                <div class="loader" style="width: 30px; height: 30px; border-width: 3px;"></div>
-                            </div>
-                        `;
-                        
-                        // 位置を設定
-                        const rect = e.target.getBoundingClientRect();
-                        screenshotPopup.style.left = (rect.left + window.scrollX) + 'px';
-                        screenshotPopup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-                        
-                        screenshotPopup.classList.add('active');
-                        
-                        // 画像を読み込み
-                        const img = new Image();
-                        img.onload = function() {
-                            if (screenshotPopup && screenshotPopup.classList.contains('active')) {
-                                screenshotPopup.innerHTML = `
-                                    <div class="text-xs text-gray-600 mb-2">
-                                        &lt;fw- tag detected / &lt;fw-タグ検出
-                                    </div>
-                                    <img src="${data.screenshot_url}" alt="Screenshot" style="max-width: 400px; height: auto;" />
-                                `;
-                            }
-                        };
-                        img.onerror = function() {
-                            if (screenshotPopup && screenshotPopup.classList.contains('active')) {
-                                screenshotPopup.innerHTML = `
-                                    <div class="text-xs text-gray-600 mb-2">
-                                        &lt;fw- tag detected / &lt;fw-タグ検出
-                                    </div>
-                                    <div class="text-xs text-red-600 p-2">
-                                        Screenshot unavailable / スクリーンショットを取得できません
-                                    </div>
-                                `;
-                            }
-                        };
-                        img.src = data.screenshot_url;
-                    }
-                } catch (error) {
-                    console.error('Screenshot fetch error:', error);
+        // スライド作成関数
+        async function createPptxSlide(rowData) {
+            try {
+                showLoading();
+                
+                const response = await fetch('/api/create-pptx', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        company_name: rowData['会社名'],
+                        industry: rowData['業界名'],
+                        country: rowData['国'],
+                        url: rowData['URL'],
+                        language: currentLanguage
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${rowData['会社名']}_Casestudy.pptx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    const errorData = await response.json();
+                    showError('スライド作成エラー: ' + errorData.error);
                 }
-            }, 500);
-        }
-        
-        function handleUrlMouseLeave(e) {
-            // タイムアウトをクリア
-            if (popupTimeout) {
-                clearTimeout(popupTimeout);
-                popupTimeout = null;
-            }
-            
-            // ポップアップを非表示
-            if (screenshotPopup) {
-                screenshotPopup.classList.remove('active');
+            } catch (error) {
+                showError('スライド作成中にエラーが発生しました: ' + error.message);
+            } finally {
+                hideLoading();
             }
         }
 
@@ -1106,7 +1066,7 @@
         });
         
         // CSVダウンロード
-        document.getElementById('downloadBtn').addEventListener('click', () => {
+        document.getElementById('downloadCsvBtn').addEventListener('click', () => {
             if (!currentData) return;
             
             // 列名を現在の言語で取得
@@ -1155,6 +1115,49 @@
                 `analysis_result_${dateStr}.csv`;
             link.download = filename;
             link.click();
+        });
+        
+        // Excelダウンロード
+        document.getElementById('downloadExcelBtn').addEventListener('click', async () => {
+            if (!currentData) return;
+            
+            try {
+                showLoading();
+                
+                const response = await fetch('/api/export-excel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        data: currentData.data,
+                        columns: currentData.columns,
+                        language: currentLanguage
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const dateStr = new Date().toISOString().split('T')[0];
+                    const filename = currentLanguage === 'ja' ? 
+                        `分析結果_${dateStr}.xlsx` : 
+                        `analysis_result_${dateStr}.xlsx`;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                } else {
+                    showError('Excelエクスポートエラー');
+                }
+            } catch (error) {
+                showError('Excelエクスポート中にエラーが発生しました: ' + error.message);
+            } finally {
+                hideLoading();
+            }
         });
 
         // ユーティリティ関数
