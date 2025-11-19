@@ -3,46 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="pageTitle">活用事例検索ツール / Use Case Search Tool</title>
+    <title id="pageTitle">活用事例検索ツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #2d3748;
             min-height: 100vh;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         }
         .loader {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid #ed8936;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .gradient-button {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            transition: all 0.3s ease;
+        .text-orange-custom {
+            color: #ed8936;
         }
-        .gradient-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        .border-orange-custom {
+            border-color: #ed8936;
         }
-        .input-modern {
-            transition: all 0.3s ease;
-            border: 2px solid #e2e8f0;
+        .bg-orange-custom {
+            background-color: #ed8936;
         }
-        .input-modern:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        .bg-orange-custom:hover {
+            background-color: #dd6b20;
+        }
+        .hover\:text-orange-600:hover {
+            color: #dd6b20;
         }
 
         /* グループ化されたドメイン行 */
@@ -95,34 +88,29 @@
 <body class="bg-gray-50">
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- ヘッダー -->
-        <div class="glass-card rounded-2xl shadow-2xl p-8 mb-8 border-t-4 border-purple-500">
-            <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4" data-lang-key="page_title">活用事例検索ツール / Use Case Search Tool</h1>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6 border-l-4 border-orange-custom">
+            <h1 class="text-3xl font-bold text-orange-custom mb-2" data-lang-key="page_title">活用事例検索ツール</h1>
             <div class="text-gray-600 space-y-2">
-                <p class="font-semibold" data-lang-key="operation_procedure">操作手順 / Operation Procedure:</p>
+                <p class="font-semibold" data-lang-key="operation_procedure">操作手順:</p>
                 <ol class="list-decimal list-inside space-y-1 ml-4">
-                    <li><span class="font-medium" data-lang-key="instruction_step1">Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください</span></li>
+                    <li><span class="font-medium" data-lang-key="instruction_step1">Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-orange-custom hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください</span></li>
                     <li><span class="font-medium" data-lang-key="instruction_step2">ダウンロードしたデータを[データアップロード]セクションにアップロードしてください</span></li>
-                    <li><span class="font-medium" data-lang-key="instruction_step3">業種と国を選択し、[検索]ボタンをクリックしてください</span></li>
+                    <li><span class="font-medium" data-lang-key="instruction_step3">カテゴリー検索または業種・国を選択し、[検索]ボタンをクリックしてください</span></li>
                 </ol>
             </div>
         </div>
 
         <!-- 入力フォーム -->
-        <div class="glass-card rounded-2xl shadow-2xl p-8 mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-                <svg class="w-8 h-8 mr-3 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                </svg>
-                データアップロード / Data Upload
-            </h2>
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4" data-lang-key="data_upload">データアップロード</h2>
             
             <form id="uploadForm" class="space-y-4">
                 <!-- 言語設定 -->
                 <div class="mb-4 pb-4 border-b border-gray-200">
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <span data-lang-key="language_settings">言語設定 / Language Settings</span>
+                        <span data-lang-key="language_settings">言語設定</span>
                     </label>
-                    <select id="languageSelect" class="block w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <select id="languageSelect" class="block w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
                         <option value="ja">Japanese (日本語)</option>
                         <option value="en">English (英語)</option>
                     </select>
@@ -131,17 +119,17 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="video_file">Top Video Views per URL (ショート動画 / Short Videos)</span>
+                            <span data-lang-key="video_file">Top Video Views per URL (ショート動画)</span>
                         </label>
                         <input type="file" id="videoFile" name="video_file" accept=".xlsx,.xls" required
-                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="live_file">Top Live Stream Views per URL (ライブ配信 / Live Streams)</span>
+                            <span data-lang-key="live_file">Top Live Stream Views per URL (ライブ配信)</span>
                         </label>
                         <input type="file" id="liveFile" name="live_file" accept=".xlsx,.xls" required
-                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                               class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
                     </div>
                 </div>
 
@@ -149,21 +137,21 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label for="caseType" class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="case_type">事例タイプ / Case Type</span> <span class="text-red-500">*</span>
+                            <span data-lang-key="case_type">事例タイプ</span> <span class="text-red-500">*</span>
                         </label>
                         <select id="caseType" name="case_type" required
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="short_video" data-lang-key="short_video">ショート動画事例 / Short Video Cases</option>
-                            <option value="live_stream" data-lang-key="live_stream">ライブ配信事例 / Live Stream Cases</option>
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
+                            <option value="short_video" data-lang-key="short_video">ショート動画事例</option>
+                            <option value="live_stream" data-lang-key="live_stream">ライブ配信事例</option>
                         </select>
                     </div>
                     <div>
                         <label for="country" class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="country">国 / Country</span>
+                            <span data-lang-key="country">国</span>
                         </label>
                         <select id="country" name="country"
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="none" data-lang-key="not_selected">選択しない / Not Selected</option>
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
+                            <option value="none" data-lang-key="not_selected">選択しない</option>
                         </select>
                     </div>
                 </div>
@@ -171,11 +159,11 @@
                 <!-- カテゴリー検索ボックス -->
                 <div class="mb-4">
                     <label for="categorySearch" class="block text-sm font-medium text-gray-700 mb-2">
-                        <span data-lang-key="search_category">カテゴリー検索 / Search Category</span>
+                        <span data-lang-key="search_category">カテゴリー検索</span>
                     </label>
                     <div class="relative">
-                        <input type="text" id="categorySearch" placeholder=""
-                               class="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        <input type="text" id="categorySearch" placeholder="キーワードで検索（日本語・英語対応）"
+                               class="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom"
                                autocomplete="off">
                         <svg class="absolute right-3 top-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -190,29 +178,29 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         <label for="majorCategory" class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="major_category">大分類 / Major Category</span>
+                            <span data-lang-key="major_category">大分類</span>
                         </label>
                         <select id="majorCategory"
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="" data-lang-key="not_selected">選択しない / Not Selected</option>
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
+                            <option value="" data-lang-key="not_selected">選択しない</option>
                         </select>
                     </div>
                     <div>
                         <label for="mediumCategory" class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="medium_category">中分類 / Medium Category</span>
+                            <span data-lang-key="medium_category">中分類</span>
                         </label>
                         <select id="mediumCategory" disabled
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
-                            <option value="" data-lang-key="select_major">大分類を選択してください / Select Major Category</option>
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="" data-lang-key="select_major">大分類を選択してください</option>
                         </select>
                     </div>
                     <div>
                         <label for="smallCategory" class="block text-sm font-medium text-gray-700 mb-2">
-                            <span data-lang-key="small_category">小分類 / Small Category</span>
+                            <span data-lang-key="small_category">小分類</span>
                         </label>
                         <select id="smallCategory" disabled
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
-                            <option value="" data-lang-key="select_medium">中分類を選択してください / Select Medium Category</option>
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="" data-lang-key="select_medium">中分類を選択してください</option>
                         </select>
                     </div>
                 </div>
@@ -220,8 +208,8 @@
                 <!-- 送信ボタン -->
                 <div class="flex justify-end">
                     <button type="submit" id="submitBtn"
-                            class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        <span data-lang-key="search_button">検索 / Search</span>
+                            class="px-6 py-2 bg-orange-custom text-white font-semibold rounded-md shadow hover:bg-orange-custom focus:outline-none focus:ring-2 focus:ring-orange-custom focus:ring-offset-2">
+                        <span data-lang-key="search_button">検索</span>
                     </button>
                 </div>
             </form>
@@ -231,7 +219,7 @@
         <div id="loading" class="hidden bg-white rounded-lg shadow-md p-8 mb-6">
             <div class="flex flex-col items-center justify-center">
                 <div class="loader mb-4"></div>
-                <p class="text-gray-600" data-lang-key="processing">データを処理中... / Processing data...</p>
+                <p class="text-gray-600" data-lang-key="processing">データを処理中...</p>
             </div>
         </div>
 
@@ -242,7 +230,7 @@
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                 </svg>
                 <div>
-                    <h3 class="text-red-800 font-semibold" data-lang-key="error_title">エラー / Error</h3>
+                    <h3 class="text-red-800 font-semibold" data-lang-key="error_title">エラー</h3>
                     <p id="errorMessage" class="text-red-700 mt-1"></p>
                 </div>
             </div>
@@ -251,11 +239,11 @@
         <!-- 結果表示 -->
         <div id="results" class="hidden bg-white rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-800" data-lang-key="results_title">分析結果 / Analysis Results</h2>
+                <h2 class="text-xl font-semibold text-gray-800" data-lang-key="results_title">分析結果</h2>
                 <div class="flex gap-4 items-center">
                     <label class="flex items-center text-sm text-gray-700">
                         <input type="checkbox" id="groupByDomain" class="mr-2">
-                        <span data-lang-key="group_by_domain">ドメインごとにグループ化 / Group by Domain</span>
+                        <span data-lang-key="group_by_domain">ドメインごとにグループ化</span>
                     </label>
                     <span id="resultCount" class="text-sm text-gray-600"></span>
                 </div>
@@ -279,7 +267,7 @@
                     <button id="downloadExcelBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                         <span data-lang-key="download_excel">Excelダウンロード</span>
                     </button>
-                    <button id="loadMoreBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hidden">
+                    <button id="loadMoreBtn" class="px-4 py-2 bg-orange-custom text-white font-semibold rounded-md shadow hover:bg-orange-custom focus:outline-none focus:ring-2 focus:ring-orange-custom focus:ring-offset-2 hidden">
                         <span data-lang-key="next_10_sites">次の10件を見る</span>
                     </button>
                 </div>
@@ -301,6 +289,7 @@
         const translations = {
             page_title: { ja: '活用事例検索ツール', en: 'Use Case Search Tool' },
             language_settings: { ja: '言語設定', en: 'Language Settings' },
+            data_upload: { ja: 'データアップロード', en: 'Data Upload' },
             video_file: { ja: 'Top Video Views per URL (ショート動画)', en: 'Top Video Views per URL (Short Videos)' },
             live_file: { ja: 'Top Live Stream Views per URL (ライブ配信)', en: 'Top Live Stream Views per URL (Live Streams)' },
             case_type: { ja: '事例タイプ', en: 'Case Type' },
@@ -333,8 +322,8 @@
             no_results: { ja: '該当するカテゴリーが見つかりません', en: 'No matching categories found' },
             operation_procedure: { ja: '操作手順:', en: 'How to use this tool:' },
             instruction_step1: { 
-                ja: 'Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください', 
-                en: 'Download the <a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">"extented_Find Played URL (Short Videos & Live Streams)"</a> Sigma report, specifically the "Top Video Views per URL" and "Top Live Stream Views per URL" reports' 
+                ja: 'Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-orange-custom hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください', 
+                en: 'Download the <a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-orange-custom hover:underline">"extented_Find Played URL (Short Videos & Live Streams)"</a> Sigma report, specifically the "Top Video Views per URL" and "Top Live Stream Views per URL" reports' 
             },
             instruction_step2: { 
                 ja: 'ダウンロードしたデータを[データアップロード]セクションにアップロードしてください', 
@@ -949,11 +938,11 @@
                                 const link = document.createElement('a');
                                 link.href = row[col];
                                 link.target = '_blank';
-                                link.className = 'text-blue-600 hover:text-blue-800 hover:underline';
+                                link.className = 'text-orange-custom hover:text-orange-600 hover:underline';
                                 link.textContent = row[col];
                                 
                                 const createSlideBtn = document.createElement('button');
-                                createSlideBtn.className = 'px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700';
+                                createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom';
                                 createSlideBtn.textContent = translations.create_slide[currentLanguage];
                                 createSlideBtn.setAttribute('data-lang-key', 'create_slide');
                                 createSlideBtn.onclick = () => createPptxSlide(row);
@@ -988,11 +977,11 @@
                             const link = document.createElement('a');
                             link.href = row[col];
                             link.target = '_blank';
-                            link.className = 'text-blue-600 hover:text-blue-800 hover:underline';
+                            link.className = 'text-orange-custom hover:text-orange-600 hover:underline';
                             link.textContent = row[col];
                             
                             const createSlideBtn = document.createElement('button');
-                            createSlideBtn.className = 'px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700';
+                            createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom';
                             createSlideBtn.textContent = translations.create_slide[currentLanguage];
                             createSlideBtn.setAttribute('data-lang-key', 'create_slide');
                             createSlideBtn.onclick = () => createPptxSlide(row);
