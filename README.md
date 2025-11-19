@@ -137,6 +137,45 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
 - **OpenAI API**: PPTX生成時のWebサイト分析に必須（APIキーが無効な場合はフォールバックテキストが使用されます）
 - **ScreenshotAPI.net**: Webサイトスクリーンショットの自動挿入に使用（トークンが未設定の場合はプレースホルダーテキストが表示されます）
 
+## デプロイ（本番環境への公開）
+
+### Render.comへのデプロイ（推奨）
+
+1. **Render.comアカウント作成**
+   - https://render.com/ にアクセス
+   - GitHubアカウントでサインアップ
+
+2. **新しいWeb Serviceを作成**
+   - Dashboard → "New +" → "Web Service"
+   - GitHubリポジトリを接続: `Meguroman1978/casestudy`
+   - Branch: `main`
+
+3. **環境変数の設定**
+   Render.comのダッシュボードで以下の環境変数を設定：
+   ```
+   OPENAI_API_KEY=your-openai-api-key
+   GOOGLE_SHEET_ID=your-google-sheet-id
+   SCREENSHOT_API_TOKEN=your-screenshot-token (オプション)
+   ```
+
+4. **Template.pptxのアップロード**
+   - Render.comはファイルサイズ制限があるため、Template.pptxは別途クラウドストレージ（Google Drive, Dropboxなど）に保存し、アプリケーション起動時にダウンロードする仕組みが必要です
+   - または、PPTXテンプレート機能を無効化してデプロイすることも可能です
+
+5. **デプロイ実行**
+   - "Create Web Service"をクリック
+   - 自動的にビルド＆デプロイが開始されます
+   - デプロイ完了後、公開URLが発行されます（例: https://your-app.onrender.com）
+
+**注意**: Render.comの無料プランでは、15分間アクセスがないとアプリが自動的にスリープ状態になります。再アクセス時は起動に30秒～1分程度かかります。
+
+### その他のデプロイオプション
+
+- **Railway.app**: https://railway.app/ (無料クレジット付き)
+- **Heroku**: https://www.heroku.com/ (有料プラン必要)
+- **Google Cloud Run**: コンテナベースのデプロイ
+- **AWS Elastic Beanstalk**: AWSでのPythonアプリホスティング
+
 ## ライセンス
 
 MIT License
