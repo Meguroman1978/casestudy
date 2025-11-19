@@ -37,7 +37,30 @@ ExcelファイルとGoogle Sheetを連携して、動画事例データを分析
 pip install -r requirements.txt
 ```
 
-### 2. アプリケーションの起動
+### 2. 環境変数の設定
+
+PPTX生成機能でOpenAI APIを使用するため、APIキーを環境変数に設定してください：
+
+**方法1: .envファイルを使用（推奨）**
+
+```bash
+cp .env.example .env
+# .envファイルを編集してOPENAI_API_KEYを設定
+```
+
+**方法2: 直接環境変数を設定**
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key-here"
+```
+
+### 3. Template.pptxの配置
+
+PPTXファイル生成機能を使用する場合、`Template.pptx`ファイルをプロジェクトのルートディレクトリに配置してください。
+
+**注意**: Template.pptxは72MBの大きなファイルのため、Gitリポジトリには含まれていません（.gitignoreに記載）。
+
+### 4. アプリケーションの起動
 
 ```bash
 python app.py
