@@ -749,25 +749,25 @@ def create_pptx():
                 screenshot_response = requests.get(screenshot_url, timeout=30)
                 
                 if screenshot_response.status_code == 200:
-                img_data = io.BytesIO(screenshot_response.content)
-                img = Image.open(img_data)
-                
-                # 画像を挿入する位置を探す
-                for shape in slide.shapes:
-                    if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                        left = shape.left
-                        top = shape.top
-                        width = shape.width
-                        height = shape.height
-                        
-                        # プレースホルダーを削除
-                        sp = shape.element
-                        sp.getparent().remove(sp)
-                        
-                        # 画像をリサイズして挿入
-                        slide.shapes.add_picture(img_data, left, top, width=width, height=height)
-                        screenshot_inserted = True
-                        break
+                    img_data = io.BytesIO(screenshot_response.content)
+                    img = Image.open(img_data)
+                    
+                    # 画像を挿入する位置を探す
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                            left = shape.left
+                            top = shape.top
+                            width = shape.width
+                            height = shape.height
+                            
+                            # プレースホルダーを削除
+                            sp = shape.element
+                            sp.getparent().remove(sp)
+                            
+                            # 画像をリサイズして挿入
+                            slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                            screenshot_inserted = True
+                            break
                 else:
                     logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
             except Exception as e:
