@@ -16,6 +16,7 @@ from pptx.util import Inches, Pt
 from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ロギング設定
 logging.basicConfig(level=logging.DEBUG)
@@ -187,8 +188,8 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         logger.error(traceback.format_exc())
         return None
 
-def group_by_domain_and_paginate(result_df, page=1, page_size=10):
-    """Channel Name単位でグループ化してTop 20に絞る"""
+def group_by_domain_and_paginate(result_df, page=1, page_size=20):
+    """Channel Name単位でグループ化してページング (デフォルト20件/ページ)"""
     try:
         logger.info(f"[STEP 6] Channel Name単位でグループ化中... (ページ: {page}, サイズ: {page_size})")
         
@@ -217,8 +218,8 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=10):
         # グループ化して集計
         channel_summary = result_df.groupby(group_column).agg(agg_dict).reset_index()
         
-        # 合計視聴回数で降順ソート、Top 20に絞る
-        channel_summary = channel_summary.sort_values('_views', ascending=False).head(20)
+        # 合計視聴回数で降順ソート (ページングで制限するのでhead(20)は削除)
+        channel_summary = channel_summary.sort_values('_views', ascending=False)
         
         logger.info(f"グループ化完了: Top {len(channel_summary)}件")
         
@@ -379,7 +380,7 @@ def process_data():
         industry_filter = request.form.get('industry_filter', 'none')
         country = request.form.get('country', 'none')
         page = int(request.form.get('page', 1))
-        page_size = int(request.form.get('page_size', 10))
+        page_size = int(request.form.get('page_size', 20))  # デフォルトを20に変更
         
         logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, ページ={page}")
         
@@ -426,14 +427,36 @@ def process_data():
         detailed_data = pagination_result['detailed_data']
         original_count = len(detailed_data)
         
-        # URLごとに<fw-タグの存在をチェック
-        fw_tag_flags = []
-        for idx, row in detailed_data.iterrows():
-            url = row['URL']
-            has_fw_tag, _ = check_fw_tag_in_url(url)
-            fw_tag_flags.append(has_fw_tag)
+        # 並列処理でURLチェックを高速化 (最大10スレッド並列)
+        logger.info(f"並列URLチェック開始: {original_count}件のURL")
         
-        detailed_data['has_fw_tag'] = fw_tag_flags
+        def check_url_wrapper(url):
+            """URLチェックのラッパー関数"""
+            try:
+                has_fw_tag, _ = check_fw_tag_in_url(url)
+                return (url, has_fw_tag)
+            except Exception as e:
+                logger.error(f"URLチェック失敗 ({url}): {e}")
+                return (url, False)
+        
+        # 並列実行
+        url_to_flag = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            # すべてのURLに対してチェックを送信
+            future_to_url = {executor.submit(check_url_wrapper, row['URL']): row['URL'] 
+                           for idx, row in detailed_data.iterrows()}
+            
+            # 完了したものから結果を取得
+            completed = 0
+            for future in as_completed(future_to_url):
+                url, has_fw_tag = future.result()
+                url_to_flag[url] = has_fw_tag
+                completed += 1
+                if completed % 10 == 0:
+                    logger.info(f"進行状況: {completed}/{original_count} URLチェック完了")
+        
+        # 結果をDataFrameに反映
+        detailed_data['has_fw_tag'] = detailed_data['URL'].map(url_to_flag)
         filtered_data = detailed_data[detailed_data['has_fw_tag'] == True].copy()
         
         # 内部使用列を削除（フロントエンドで使用しないため）
