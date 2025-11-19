@@ -6,7 +6,7 @@ import re
 import json
 import io
 from urllib.parse import urlparse
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
@@ -255,6 +255,12 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=20):
 def index():
     """トップページ"""
     return render_template('index.html')
+
+@app.route('/favicon.ico')
+def favicon():
+    """Favicon"""
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/api/get-options', methods=['GET'])
 def get_options():
