@@ -39,20 +39,31 @@ pip install -r requirements.txt
 
 ### 2. 環境変数の設定
 
-PPTX生成機能でOpenAI APIを使用するため、APIキーを環境変数に設定してください：
+PPTX生成機能でOpenAI APIとGoogle Sheetsを使用するため、必要な環境変数を設定してください：
 
 **方法1: .envファイルを使用（推奨）**
 
 ```bash
 cp .env.example .env
-# .envファイルを編集してOPENAI_API_KEYを設定
+# .envファイルを編集して以下を設定:
+# - OPENAI_API_KEY: OpenAI APIキー（必須）
+# - GOOGLE_SHEET_ID: Google SheetsのID（URLの/d/と/editの間の文字列）（必須）
+# - SCREENSHOT_API_TOKEN: ScreenshotAPI.netのトークン（オプション）
 ```
 
 **方法2: 直接環境変数を設定**
 
 ```bash
 export OPENAI_API_KEY="your-openai-api-key-here"
+export GOOGLE_SHEET_ID="your-google-sheet-id-here"
+export SCREENSHOT_API_TOKEN="your-screenshot-api-token-here"  # オプション
 ```
+
+**API取得方法**:
+- **OpenAI API**: https://platform.openai.com/api-keys でAPIキーを取得
+- **ScreenshotAPI.net**: https://screenshotapi.net/ でアカウント作成後、トークンを取得（オプション）
+
+**重要**: セキュリティのため、これらの値は絶対にGitにコミットしないでください。`.env`ファイルは`.gitignore`に含まれています。
 
 ### 3. Template.pptxの配置
 
@@ -115,7 +126,7 @@ python app.py
 - `Account: Industry`: 業界名
 - `Account: Owner Territory`: 国
 
-Google Sheet URL: https://docs.google.com/spreadsheets/d/1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk/edit
+Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリティのため直接URLは記載しません）。
 
 ## 注意事項
 
@@ -123,6 +134,8 @@ Google Sheet URL: https://docs.google.com/spreadsheets/d/1EsNylv4Leg73lb_AXJLMBn
 - 対応ファイル形式: .xlsx, .xls
 - Google Sheetは公開設定されている必要があります
 - 一時アップロードファイルは処理後に自動削除されます
+- **OpenAI API**: PPTX生成時のWebサイト分析に必須（APIキーが無効な場合はフォールバックテキストが使用されます）
+- **ScreenshotAPI.net**: Webサイトスクリーンショットの自動挿入に使用（トークンが未設定の場合はプレースホルダーテキストが表示されます）
 
 ## ライセンス
 

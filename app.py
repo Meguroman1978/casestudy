@@ -32,7 +32,9 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls'}
 
 # Google Sheets設定
-GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk/edit'
+GOOGLE_SHEET_ID = os.environ.get('GOOGLE_SHEET_ID', '')
+if not GOOGLE_SHEET_ID:
+    logger.warning("⚠️ GOOGLE_SHEET_ID not set in environment variables")
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
 
 def allowed_file(filename):
@@ -44,7 +46,9 @@ def get_google_sheet_data():
         logger.info("[STEP 1] Google Sheetからデータを取得中...")
         # 公開されているシートの場合、認証なしで読み取り可能
         # CSVエクスポートURLを使用
-        sheet_id = '1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk'
+        sheet_id = GOOGLE_SHEET_ID
+        if not sheet_id:
+            raise ValueError("Google Sheet ID is not configured. Please set GOOGLE_SHEET_ID environment variable.")
         gid = '0'
         csv_url = f'https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}'
         
@@ -659,6 +663,7 @@ def crawl_and_analyze_website(url, language='ja'):
             return summary
         else:
             logger.error(f"OpenAI API error: {summary_response.status_code}")
+            logger.error(f"Response body: {summary_response.text[:500]}")
             return fallback
             
     except Exception as e:
@@ -734,11 +739,16 @@ def create_pptx():
         
         # スクリーンショットを取得して挿入
         screenshot_inserted = False
-        try:
-            screenshot_url = f"https://shot.screenshotapi.net/screenshot?url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
-            screenshot_response = requests.get(screenshot_url, timeout=30)
-            
-            if screenshot_response.status_code == 200:
+        screenshot_api_token = os.environ.get('SCREENSHOT_API_TOKEN', '')
+        
+        if not screenshot_api_token:
+            logger.warning("SCREENSHOT_API_TOKEN not set - skipping screenshot generation")
+        else:
+            try:
+                screenshot_url = f"https://shot.screenshotapi.net/screenshot?token={screenshot_api_token}&url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
+                screenshot_response = requests.get(screenshot_url, timeout=30)
+                
+                if screenshot_response.status_code == 200:
                 img_data = io.BytesIO(screenshot_response.content)
                 img = Image.open(img_data)
                 
@@ -758,8 +768,10 @@ def create_pptx():
                         slide.shapes.add_picture(img_data, left, top, width=width, height=height)
                         screenshot_inserted = True
                         break
-        except Exception as e:
-            logger.warning(f"スクリーンショット取得失敗: {e}")
+                else:
+                    logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
+            except Exception as e:
+                logger.warning(f"スクリーンショット取得失敗: {e}")
         
         # スクリーンショットが挿入できなかった場合、フォールバックテキストを表示
         if not screenshot_inserted:
