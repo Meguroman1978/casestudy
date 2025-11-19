@@ -1,0 +1,296 @@
+{
+  "IT・通信・エレクトロニクス / IT, Telecom & Electronics": {
+    "ソフトウェア・インターネット / Software & Internet": {
+      "コンピュータソフトウェア / Computer Software": [
+        "Computer Software"
+      ],
+      "インターネット / Internet": [
+        "Internet",
+        "Internet Service Providers, Website Hosting & Internet-related Services"
+      ],
+      "テクノロジー / Technology": [
+        "Information Technology and Services",
+        "Technology"
+      ],
+      "コンピュータゲーム / Computer Games": [
+        "Computer Games"
+      ]
+    },
+    "ハードウェア・電子機器 / Hardware & Electronics": {
+      "コンピュータハードウェア / Computer Hardware": [
+        "Computer Hardware"
+      ],
+      "電子機器 / Electronics": [
+        "Electronics"
+      ],
+      "家電 / Consumer Electronics": [
+        "Consumer Electronics"
+      ]
+    },
+    "通信・ネットワーク / Telecommunications": {
+      "通信 / Telecommunications": [
+        "Telecommunications"
+      ],
+      "無線通信 / Wireless": [
+        "Wireless"
+      ]
+    }
+  },
+  "メディア・広告・エンタメ / Media, Advertising & Entertainment": {
+    "広告・マーケティング / Advertising & Marketing": {
+      "広告・マーケティング / Advertising & Marketing": [
+        "Advertising & Marketing",
+        "Marketing and Advertising"
+      ]
+    },
+    "出版・放送・メディア / Publishing, Broadcast & Media": {
+      "放送メディア / Broadcast Media": [
+        "Broadcast Media"
+      ],
+      "メディア / Media": [
+        "Media",
+        "Media & Internet",
+        "Online Media"
+      ],
+      "新聞・報道 / Newspapers & News Services": [
+        "Newspapers & News Services"
+      ],
+      "出版 / Publishing": [
+        "Publishing"
+      ]
+    },
+    "クリエイティブ・制作 / Creative, Design & Production": {
+      "グラフィックデザイン / Graphic Design": [
+        "Graphic Design"
+      ],
+      "デザイン / Design": [
+        "Design"
+      ],
+      "写真 / Photography": [
+        "Photography",
+        "Photography Studio"
+      ],
+      "印刷 / Printing": [
+        "Printing"
+      ],
+      "メディア制作 / Media Production": [
+        "Media Production"
+      ]
+    },
+    "エンターテインメント / Entertainment": {
+      "エンターテインメント / Entertainment": [
+        "Entertainment"
+      ],
+      "音楽 / Music": [
+        "Music"
+      ],
+      "ギャンブル・カジノ / Gambling & Casinos": [
+        "Gambling & Casinos"
+      ]
+    }
+  },
+  "製造・メーカー / Manufacturing": {
+    "自動車・機械・重工業 / Automotive, Machinery & Industrial": {
+      "自動車 / Automotive": [
+        "Automotive"
+      ],
+      "機械・産業工学 / Mechanical or Industrial Engineering": [
+        "Mechanical or Industrial Engineering"
+      ],
+      "工具・機器 / Hand, Power & Lawn-care Tools": [
+        "Hand, Power & Lawn-care Tools"
+      ]
+    },
+    "化学・素材・医薬 / Chemicals, Materials & Pharma": {
+      "化学 / Chemicals": [
+        "Chemicals"
+      ],
+      "医薬品 / Pharmaceuticals": [
+        "Pharmaceuticals"
+      ],
+      "建材 / Building Materials": [
+        "Building Materials"
+      ],
+      "繊維 / Textiles": [
+        "Textiles"
+      ]
+    },
+    "食品・飲料メーカー / Food & Beverage Production": {
+      "食品 / Food": [
+        "Food Production",
+        "Food & Beverages"
+      ]
+    },
+    "その他製造・消費財 / Other Manufacturing & Consumer Goods": {
+      "製造業 / Manufacturing": [
+        "Manufacturing"
+      ],
+      "家電機器 / Appliances": [
+        "Appliances"
+      ],
+      "家具 / Furniture": [
+        "Furniture"
+      ],
+      "消費財 / Consumer Goods": [
+        "Consumer Goods"
+      ]
+    }
+  },
+  "小売・ファッション・消費 / Retail, Fashion & Consumer Goods": {
+    "アパレル・宝飾 / Apparel, Fashion & Jewelry": {
+      "アパレル・ファッション / Apparel & Fashion": [
+        "Apparel & Fashion"
+      ],
+      "アパレル小売 / Apparel Retail": [
+        "Apparel & Accessories Retail",
+        "アパレル・ファッション小売り"
+      ],
+      "ジュエリー / Jewelry": [
+        "Jewelry & Watch Retail",
+        "Luxury Goods & Jewelry"
+      ]
+    },
+    "食品・スーパー・ドラッグ / Food Retail, Supermarkets & Drugstores": {
+      "スーパー・食品小売 / Grocery Retail": [
+        "Supermarkets",
+        "Grocery Retail"
+      ],
+      "ドラッグストア・薬局 / Drug Stores & Pharmacies": [
+        "Drug Stores & Pharmacies"
+      ]
+    },
+    "一般小売・専門店 / General Retail & Specialty Stores": {
+      "小売 / Retail": [
+        "Retail"
+      ],
+      "花・ギフト・専門店 / Flowers, Gifts & Specialty Stores": [
+        "Flowers, Gifts & Specialty Stores"
+      ],
+      "スポーツ用品 / Sporting Goods": [
+        "Sporting Goods"
+      ],
+      "スポーツ / Sports": [
+        "Sports"
+      ],
+      "化粧品・美容 / Cosmetics & Beauty": [
+        "Cosmetics",
+        "Cosmetics, Beauty Supply & Personal Care Products"
+      ]
+    }
+  },
+  "サービス・専門職・教育 / Services, Professional & Education": {
+    "ビジネスサービス・商社 / Business Services & Trading": {
+      "ビジネスサービス / Business Services": [
+        "Business Services"
+      ],
+      "ビジネス用品・設備 / Business Supplies and Equipment": [
+        "Business Supplies and Equipment"
+      ],
+      "輸出入 / Import and Export": [
+        "Import and Export"
+      ],
+      "国際貿易・開発 / International Trade and Development": [
+        "International Trade and Development"
+      ]
+    },
+    "コンサルティング・人事 / Consulting & HR": {
+      "経営コンサルティング / Management Consulting": [
+        "Management Consulting"
+      ],
+      "専門研修・コーチング / Professional Training & Coaching": [
+        "Professional Training & Coaching"
+      ],
+      "経営管理 / Executive Office": [
+        "Executive Office"
+      ]
+    },
+    "教育機関 / Education": {
+      "教育経営 / Education Management": [
+        "Education Management"
+      ],
+      "高等教育 / Higher Education": [
+        "Higher Education"
+      ]
+    },
+    "その他サービス・団体 / Other Services & Organizations": {
+      "消費者向けサービス / Consumer Services": [
+        "Consumer Services"
+      ],
+      "イベントサービス / Events Services": [
+        "Events Services"
+      ],
+      "会員組織 / Membership Organizations": [
+        "Membership Organizations"
+      ],
+      "その他 / Other": [
+        "Other"
+      ]
+    }
+  },
+  "金融・保険 / Finance & Insurance": {
+    "金融・投資 / Banking & Investment": {
+      "銀行 / Banking": [
+        "Banking"
+      ],
+      "金融サービス / Financial Services": [
+        "Financial Services"
+      ],
+      "融資・証券 / Lending & Brokerage": [
+        "Lending & Brokerage"
+      ]
+    },
+    "保険 / Insurance": {
+      "保険 / Insurance": [
+        "Insurance"
+      ]
+    }
+  },
+  "医療・ヘルスケア / Healthcare & Medical": {
+    "医療・健康 / Medical, Health & Wellness": {
+      "病院・医療 / Hospital & Health Care": [
+        "Hospital & Health Care"
+      ],
+      "健康・フィットネス / Health, Wellness and Fitness": [
+        "Health, Wellness and Fitness"
+      ]
+    }
+  },
+  "建設・不動産 / Construction & Real Estate": {
+    "建設・不動産 / Construction & Real Estate": {
+      "建設 / Construction": [
+        "Construction"
+      ],
+      "不動産 / Real Estate": [
+        "Real Estate"
+      ]
+    }
+  },
+  "運輸・旅行・物流 / Transportation, Travel & Logistics": {
+    "運輸・航空 / Transportation & Aviation": {
+      "航空 / Airlines/Aviation": [
+        "Airlines/Aviation"
+      ],
+      "運輸・物流 / Transportation/Trucking/Railroad": [
+        "Transportation/Trucking/Railroad"
+      ]
+    },
+    "旅行・レジャー・飲食 / Travel, Leisure & Hospitality": {
+      "レジャー・旅行・観光 / Leisure, Travel & Tourism": [
+        "Leisure, Travel & Tourism"
+      ],
+      "レストラン / Restaurants": [
+        "Restaurants"
+      ]
+    }
+  },
+  "インフラ・エネルギー / Infrastructure & Energy": {
+    "エネルギー・公益 / Energy & Utilities": {
+      "石油・エネルギー / Oil & Energy": [
+        "Oil & Energy"
+      ],
+      "公益事業 / Utilities": [
+        "Utilities"
+      ]
+    }
+  }
+}

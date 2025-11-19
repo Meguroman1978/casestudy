@@ -59,6 +59,30 @@
         .expand-icon.expanded {
             transform: rotate(90deg);
         }
+        /* カテゴリー検索結果 */
+        #categorySearchResults {
+            max-width: 66.666667%; /* md:w-2/3 equivalent */
+        }
+        .search-result-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .search-result-item:hover {
+            background-color: #f3f4f6;
+        }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        .search-result-hierarchy {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        .search-highlight {
+            background-color: #fef3c7;
+            font-weight: 500;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -69,9 +93,9 @@
             <div class="text-gray-600 space-y-2">
                 <p class="font-semibold">操作手順 / Operation Procedure:</p>
                 <ol class="list-decimal list-inside space-y-1 ml-4">
-                    <li>Download <a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline font-medium">extented_Find Played URL (Short Videos & Live Streams)</a> Sigma report, specifically the "Top Video Views per URL" and "Top Live Stream Views per URL" reports</li>
-                    <li>Upload the downloaded data to the [データアップロード / Data Upload] section</li>
-                    <li>Select an industry and country, then click the [検索 / Search] button</li>
+                    <li><span class="font-medium">Sigmaレポート<a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline">「extented_Find Played URL (Short Videos & Live Streams)」</a>から、「Top Video Views per URL」と「Top Live Stream Views per URL」のレポートをダウンロードしてください / Download the </span><a href="https://app.sigmacomputing.com/firework-data/workbook/extented_Find-Played-URL-Short-Videos-and-Live-Streams-5RmUtwEHpkm4whkeGPvY5r?:nodeId=xvtneb0meH" target="_blank" class="text-blue-600 hover:underline font-medium">"extented_Find Played URL (Short Videos & Live Streams)"</a><span class="font-medium"> Sigma report, specifically the "Top Video Views per URL" and "Top Live Stream Views per URL" reports</span></li>
+                    <li><span class="font-medium">ダウンロードしたデータを[データアップロード / Data Upload]セクションにアップロードしてください / Upload the downloaded data to the [データアップロード / Data Upload] section</span></li>
+                    <li><span class="font-medium">業種と国を選択し、[検索 / Search]ボタンをクリックしてください / Select an industry and country, then click the [検索 / Search] button</span></li>
                 </ol>
             </div>
         </div>
@@ -81,18 +105,28 @@
             <h2 class="text-xl font-semibold text-gray-800 mb-4">データアップロード / Data Upload</h2>
             
             <form id="uploadForm" class="space-y-4">
+                <!-- 言語設定 -->
+                <div class="mb-4 pb-4 border-b border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span data-lang-key="language_settings">言語設定 / Language Settings</span>
+                    </label>
+                    <select id="languageSelect" class="block w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="ja">Japanese (日本語)</option>
+                        <option value="en">English (英語)</option>
+                    </select>
+                </div>
                 <!-- ファイルアップロード -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Top Video Views per URL (ショート動画 / Short Videos)
+                            <span data-lang-key="video_file">Top Video Views per URL (ショート動画 / Short Videos)</span>
                         </label>
                         <input type="file" id="videoFile" name="video_file" accept=".xlsx,.xls" required
                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            Top Live Stream Views per URL (ライブ配信 / Live Streams)
+                            <span data-lang-key="live_file">Top Live Stream Views per URL (ライブ配信 / Live Streams)</span>
                         </label>
                         <input type="file" id="liveFile" name="live_file" accept=".xlsx,.xls" required
                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
@@ -100,33 +134,73 @@
                 </div>
 
                 <!-- フィルター -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label for="caseType" class="block text-sm font-medium text-gray-700 mb-2">
-                            事例タイプ / Case Type <span class="text-red-500">*</span>
+                            <span data-lang-key="case_type">事例タイプ / Case Type</span> <span class="text-red-500">*</span>
                         </label>
                         <select id="caseType" name="case_type" required
                                 class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="short_video">ショート動画事例 / Short Video Cases</option>
-                            <option value="live_stream">ライブ配信事例 / Live Stream Cases</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="industry" class="block text-sm font-medium text-gray-700 mb-2">
-                            業界名 / Industry
-                        </label>
-                        <select id="industry" name="industry"
-                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="none">選択しない / Not Selected</option>
+                            <option value="short_video" data-lang-key="short_video">ショート動画事例 / Short Video Cases</option>
+                            <option value="live_stream" data-lang-key="live_stream">ライブ配信事例 / Live Stream Cases</option>
                         </select>
                     </div>
                     <div>
                         <label for="country" class="block text-sm font-medium text-gray-700 mb-2">
-                            国 / Country
+                            <span data-lang-key="country">国 / Country</span>
                         </label>
                         <select id="country" name="country"
                                 class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                            <option value="none">選択しない / Not Selected</option>
+                            <option value="none" data-lang-key="not_selected">選択しない / Not Selected</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- カテゴリー検索ボックス -->
+                <div class="mb-4">
+                    <label for="categorySearch" class="block text-sm font-medium text-gray-700 mb-2">
+                        <span data-lang-key="search_category">カテゴリー検索 / Search Category</span>
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="categorySearch" placeholder=""
+                               class="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                               autocomplete="off">
+                        <svg class="absolute right-3 top-3 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <!-- 検索結果のドロップダウン -->
+                    <div id="categorySearchResults" class="hidden absolute z-10 w-full md:w-2/3 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    </div>
+                </div>
+
+                <!-- 業種階層フィルター -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="majorCategory" class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-lang-key="major_category">大分類 / Major Category</span>
+                        </label>
+                        <select id="majorCategory"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                            <option value="" data-lang-key="not_selected">選択しない / Not Selected</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="mediumCategory" class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-lang-key="medium_category">中分類 / Medium Category</span>
+                        </label>
+                        <select id="mediumCategory" disabled
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="" data-lang-key="select_major">大分類を選択してください / Select Major Category</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="smallCategory" class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-lang-key="small_category">小分類 / Small Category</span>
+                        </label>
+                        <select id="smallCategory" disabled
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed">
+                            <option value="" data-lang-key="select_medium">中分類を選択してください / Select Medium Category</option>
                         </select>
                     </div>
                 </div>
@@ -135,7 +209,7 @@
                 <div class="flex justify-end">
                     <button type="submit" id="submitBtn"
                             class="px-6 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
-                        検索 / Search
+                        <span data-lang-key="search_button">検索 / Search</span>
                     </button>
                 </div>
             </form>
@@ -145,7 +219,7 @@
         <div id="loading" class="hidden bg-white rounded-lg shadow-md p-8 mb-6">
             <div class="flex flex-col items-center justify-center">
                 <div class="loader mb-4"></div>
-                <p class="text-gray-600">データを処理中... / Processing data...</p>
+                <p class="text-gray-600" data-lang-key="processing">データを処理中... / Processing data...</p>
             </div>
         </div>
 
@@ -156,7 +230,7 @@
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
                 </svg>
                 <div>
-                    <h3 class="text-red-800 font-semibold">エラー / Error</h3>
+                    <h3 class="text-red-800 font-semibold" data-lang-key="error_title">エラー / Error</h3>
                     <p id="errorMessage" class="text-red-700 mt-1"></p>
                 </div>
             </div>
@@ -165,11 +239,11 @@
         <!-- 結果表示 -->
         <div id="results" class="hidden bg-white rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-semibold text-gray-800">分析結果 / Analysis Results</h2>
+                <h2 class="text-xl font-semibold text-gray-800" data-lang-key="results_title">分析結果 / Analysis Results</h2>
                 <div class="flex gap-4 items-center">
                     <label class="flex items-center text-sm text-gray-700">
                         <input type="checkbox" id="groupByDomain" class="mr-2">
-                        ドメインごとにグループ化 / Group by Domain
+                        <span data-lang-key="group_by_domain">ドメインごとにグループ化 / Group by Domain</span>
                     </label>
                     <span id="resultCount" class="text-sm text-gray-600"></span>
                 </div>
@@ -184,10 +258,13 @@
                 </table>
             </div>
 
-            <!-- CSVダウンロードボタン -->
-            <div class="mt-4 flex justify-end">
+            <!-- ボタン群 -->
+            <div class="mt-4 flex justify-between items-center gap-4">
+                <button id="loadMoreBtn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 hidden">
+                    <span data-lang-key="load_more">次の10件を見る / Show Next 10</span>
+                </button>
                 <button id="downloadBtn" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-md shadow hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-                    CSVでダウンロード / Download CSV
+                    <span data-lang-key="download_csv">CSVでダウンロード / Download CSV</span>
                 </button>
             </div>
         </div>
@@ -196,69 +273,492 @@
     <script>
         let currentData = null;
         let currentGroupedData = null;
-
-        // ページ読み込み時に業界名と国のオプションを取得
-        document.addEventListener('DOMContentLoaded', async () => {
-            try {
-                const response = await fetch('/api/get-options');
-                const data = await response.json();
-                
-                if (response.ok) {
-                    const industrySelect = document.getElementById('industry');
-                    const countrySelect = document.getElementById('country');
-                    
-                    // 業界名のオプションを追加
-                    data.industries.forEach(industry => {
-                        const option = document.createElement('option');
-                        option.value = industry;
-                        option.textContent = industry;
-                        industrySelect.appendChild(option);
-                    });
-                    
-                    // 国のオプションを追加
-                    data.countries.forEach(country => {
-                        const option = document.createElement('option');
-                        option.value = country;
-                        option.textContent = country;
-                        countrySelect.appendChild(option);
-                    });
-                } else {
-                    showError('オプションの取得に失敗しました / Failed to load options: ' + data.error);
-                }
-            } catch (error) {
-                showError('オプションの取得中にエラーが発生しました / Error loading options: ' + error.message);
-            }
+        let currentPage = 1;
+        let currentFormData = null;
+        let hasNextPage = false;
+        let categoryHierarchy = null;
+        let categoryMapping = {};  // 統合後の小分類 → 元の小分類のリスト
+        let currentLanguage = 'ja';  // デフォルトは日本語
+        
+        // 言語切り替え用の翻訳テキスト
+        const translations = {
+            language_settings: { ja: '言語設定', en: 'Language Settings' },
+            video_file: { ja: 'Top Video Views per URL (ショート動画)', en: 'Top Video Views per URL (Short Videos)' },
+            live_file: { ja: 'Top Live Stream Views per URL (ライブ配信)', en: 'Top Live Stream Views per URL (Live Streams)' },
+            case_type: { ja: '事例タイプ', en: 'Case Type' },
+            short_video: { ja: 'ショート動画事例', en: 'Short Video Cases' },
+            live_stream: { ja: 'ライブ配信事例', en: 'Live Stream Cases' },
+            country: { ja: '国', en: 'Country' },
+            not_selected: { ja: '選択しない', en: 'Not Selected' },
+            other_country: { ja: 'その他', en: 'Other' },
+            search_category: { ja: 'カテゴリー検索', en: 'Search Category' },
+            search_placeholder: { ja: 'キーワードで検索（日本語・英語対応）', en: 'Search by keyword (Japanese/English)' },
+            major_category: { ja: '大分類', en: 'Major Category' },
+            medium_category: { ja: '中分類', en: 'Medium Category' },
+            small_category: { ja: '小分類', en: 'Small Category' },
+            select_major: { ja: '大分類を選択してください', en: 'Select Major Category' },
+            select_medium: { ja: '中分類を選択してください', en: 'Select Medium Category' },
+            search_button: { ja: '検索', en: 'Search' },
+            processing: { ja: 'データを処理中...', en: 'Processing data...' },
+            error_title: { ja: 'エラー', en: 'Error' },
+            results_title: { ja: '分析結果', en: 'Analysis Results' },
+            group_by_domain: { ja: 'ドメインごとにグループ化', en: 'Group by Domain' },
+            load_more: { ja: '次の10件を見る', en: 'Show Next 10' },
+            download_csv: { ja: 'CSVでダウンロード', en: 'Download CSV' },
+            company_name: { ja: '会社名', en: 'Company Name' },
+            industry: { ja: '業界名', en: 'Industry' },
+            country_col: { ja: '国', en: 'Country' },
+            url_col: { ja: 'URL', en: 'URL' },
+            results_found: { ja: '件のデータが見つかりました', en: 'results found' },
+            total_domains: { ja: '全', en: '' },
+            domains_suffix: { ja: 'ドメイン', en: 'total domains' },
+            no_results: { ja: '該当するカテゴリーが見つかりません', en: 'No matching categories found' }
+        };
+        
+        // 言語を切り替える関数
+        function switchLanguage(lang) {
+            currentLanguage = lang;
             
-            // グループ化チェックボックスのイベントリスナー
-            document.getElementById('groupByDomain').addEventListener('change', function() {
-                if (currentData) {
-                    displayResults(currentData);
+            // data-lang-key属性を持つ全要素を更新
+            document.querySelectorAll('[data-lang-key]').forEach(el => {
+                const key = el.getAttribute('data-lang-key');
+                if (translations[key] && translations[key][lang]) {
+                    el.textContent = translations[key][lang];
                 }
             });
+            
+            // 検索ボックスのプレースホルダーを更新
+            const searchInput = document.getElementById('categorySearch');
+            if (searchInput) {
+                searchInput.placeholder = translations.search_placeholder[lang];
+            }
+            
+            // ドロップダウンの選択肢を更新（カテゴリー以外）
+            updateDropdownOptions();
+            
+            // 結果が表示されている場合は再描画
+            if (currentData) {
+                displayResults(currentData, false);
+            }
+        }
+        
+        // カテゴリー検索機能
+        function searchCategories(query) {
+            if (!categoryHierarchy || !query || query.trim().length === 0) {
+                return [];
+            }
+            
+            const results = [];
+            const lowerQuery = query.toLowerCase().trim();
+            
+            // 全カテゴリーを検索
+            for (const major in categoryHierarchy) {
+                for (const medium in categoryHierarchy[major]) {
+                    for (const small in categoryHierarchy[major][medium]) {
+                        // 日本語と英語の両方で検索
+                        const searchText = `${major} ${medium} ${small}`.toLowerCase();
+                        
+                        if (searchText.includes(lowerQuery)) {
+                            results.push({
+                                major: major,
+                                medium: medium,
+                                small: small,
+                                matchText: small
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return results;
+        }
+        
+        // 検索結果をハイライト表示
+        function highlightMatch(text, query) {
+            if (!query || query.trim().length === 0) {
+                return text;
+            }
+            
+            const lowerText = text.toLowerCase();
+            const lowerQuery = query.toLowerCase().trim();
+            const index = lowerText.indexOf(lowerQuery);
+            
+            if (index === -1) {
+                return text;
+            }
+            
+            const before = text.substring(0, index);
+            const match = text.substring(index, index + query.length);
+            const after = text.substring(index + query.length);
+            
+            return `${before}<span class="search-highlight">${match}</span>${after}`;
+        }
+        
+        // 検索結果を表示
+        function displaySearchResults(results, query) {
+            const resultsContainer = document.getElementById('categorySearchResults');
+            
+            if (results.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div class="search-result-item text-gray-500 text-center">
+                        ${translations.no_results[currentLanguage]}
+                    </div>
+                `;
+                resultsContainer.classList.remove('hidden');
+                return;
+            }
+            
+            resultsContainer.innerHTML = '';
+            
+            results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                
+                // 小分類を言語に応じて表示
+                const smallText = extractLanguageText(result.small, currentLanguage);
+                const majorText = extractLanguageText(result.major, currentLanguage);
+                const mediumText = extractLanguageText(result.medium, currentLanguage);
+                
+                item.innerHTML = `
+                    <div class="font-medium">${highlightMatch(smallText, query)}</div>
+                    <div class="search-result-hierarchy">
+                        ${majorText} > ${mediumText}
+                    </div>
+                `;
+                
+                // クリックイベント：カテゴリーを自動選択
+                item.addEventListener('click', () => {
+                    selectCategory(result.major, result.medium, result.small);
+                    resultsContainer.classList.add('hidden');
+                    document.getElementById('categorySearch').value = smallText;
+                });
+                
+                resultsContainer.appendChild(item);
+            });
+            
+            resultsContainer.classList.remove('hidden');
+        }
+        
+        // カテゴリーを自動選択
+        function selectCategory(major, medium, small) {
+            // 大分類を選択
+            const majorSelect = document.getElementById('majorCategory');
+            majorSelect.value = major;
+            majorSelect.dispatchEvent(new Event('change'));
+            
+            // 中分類が読み込まれるまで待つ
+            setTimeout(() => {
+                const mediumSelect = document.getElementById('mediumCategory');
+                
+                // 中分類を選択（元のテキストを探す）
+                for (let option of mediumSelect.options) {
+                    const originalText = option.getAttribute('data-original-text') || option.value;
+                    if (originalText === medium) {
+                        mediumSelect.value = option.value;
+                        mediumSelect.dispatchEvent(new Event('change'));
+                        break;
+                    }
+                }
+                
+                // 小分類が読み込まれるまで待つ
+                setTimeout(() => {
+                    const smallSelect = document.getElementById('smallCategory');
+                    
+                    // 小分類を選択
+                    for (let option of smallSelect.options) {
+                        const originalText = option.getAttribute('data-original-text') || option.value;
+                        if (originalText === small) {
+                            smallSelect.value = option.value;
+                            break;
+                        }
+                    }
+                }, 100);
+            }, 100);
+        }
+        
+        // バイリンガルテキストから言語別テキストを抽出
+        function extractLanguageText(text, lang) {
+            if (!text) return text;
+            
+            // "日本語 / English" 形式の場合
+            if (text.includes(' / ')) {
+                const parts = text.split(' / ');
+                return lang === 'ja' ? parts[0].trim() : parts[1].trim();
+            }
+            
+            return text;
+        }
+        
+        // ドロップダウンの選択肢を更新
+        function updateDropdownOptions() {
+            // 国のドロップダウンを更新
+            const countrySelect = document.getElementById('country');
+            Array.from(countrySelect.options).forEach(option => {
+                const originalText = option.getAttribute('data-original-text') || option.textContent;
+                if (!option.getAttribute('data-original-text')) {
+                    option.setAttribute('data-original-text', originalText);
+                }
+                
+                // "System"を"その他"として表示
+                if (option.value === 'System') {
+                    option.textContent = currentLanguage === 'ja' ? 'その他' : 'Other';
+                } else if (option.value === 'none') {
+                    option.textContent = translations.not_selected[currentLanguage];
+                } else {
+                    option.textContent = extractLanguageText(originalText, currentLanguage);
+                }
+            });
+            
+            // カテゴリードロップダウンを更新
+            updateCategoryDropdowns();
+        }
+        
+        // カテゴリードロップダウンを更新
+        function updateCategoryDropdowns() {
+            ['majorCategory', 'mediumCategory', 'smallCategory'].forEach(selectId => {
+                const select = document.getElementById(selectId);
+                Array.from(select.options).forEach(option => {
+                    const originalText = option.getAttribute('data-original-text') || option.textContent;
+                    if (!option.getAttribute('data-original-text')) {
+                        option.setAttribute('data-original-text', originalText);
+                    }
+                    
+                    if (option.value === '') {
+                        // デフォルトオプション
+                        const key = selectId === 'majorCategory' ? 'not_selected' :
+                                    selectId === 'mediumCategory' ? 'select_major' : 'select_medium';
+                        option.textContent = translations[key][currentLanguage];
+                    } else {
+                        option.textContent = extractLanguageText(originalText, currentLanguage);
+                    }
+                });
+            });
+        }
+
+        // ページ読み込み時に国のオプションとカテゴリー階層を取得
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // 言語切り替えイベントリスナーを設定
+                document.getElementById('languageSelect').addEventListener('change', function() {
+                    switchLanguage(this.value);
+                });
+                
+                // 国のオプションを取得
+                const optionsResponse = await fetch('/api/get-options');
+                const optionsData = await optionsResponse.json();
+                
+                if (optionsResponse.ok) {
+                    const countrySelect = document.getElementById('country');
+                    
+                    // 国のオプションを追加
+                    optionsData.countries.forEach(country => {
+                        const option = document.createElement('option');
+                        option.value = country;
+                        // "System"を"その他"として表示（バックエンドではSystemを使用）
+                        if (country === 'System') {
+                            option.textContent = 'その他 / Other';
+                            option.setAttribute('data-original-text', 'その他 / Other');
+                        } else {
+                            option.textContent = country;
+                            option.setAttribute('data-original-text', country);
+                        }
+                        countrySelect.appendChild(option);
+                    });
+                    
+                    // 初期言語を適用
+                    switchLanguage('ja');
+                } else {
+                    showError('オプションの取得に失敗しました / Failed to load options: ' + optionsData.error);
+                }
+                
+                // カテゴリー階層を取得
+                const categoryResponse = await fetch('/api/get-category-hierarchy');
+                categoryHierarchy = await categoryResponse.json();
+                
+                if (categoryResponse.ok) {
+                    // 大分類のオプションを追加
+                    const majorSelect = document.getElementById('majorCategory');
+                    Object.keys(categoryHierarchy).forEach(major => {
+                        const option = document.createElement('option');
+                        option.value = major;
+                        option.textContent = major;
+                        option.setAttribute('data-original-text', major);
+                        majorSelect.appendChild(option);
+                    });
+                    
+                    // カテゴリーマッピングを作成
+                    for (const major in categoryHierarchy) {
+                        for (const medium in categoryHierarchy[major]) {
+                            for (const smallConsolidated in categoryHierarchy[major][medium]) {
+                                const originalSmalls = categoryHierarchy[major][medium][smallConsolidated];
+                                categoryMapping[smallConsolidated] = originalSmalls;
+                            }
+                        }
+                    }
+                    
+                    // 初期言語を適用
+                    switchLanguage('ja');
+                } else {
+                    showError('カテゴリー階層の取得に失敗しました / Failed to load category hierarchy');
+                }
+            } catch (error) {
+                showError('初期化中にエラーが発生しました / Error during initialization: ' + error.message);
+            }
+            
+            // グループ化チェックボックスは常にオンに設定し、非表示に
+            const groupByCheckbox = document.getElementById('groupByDomain');
+            groupByCheckbox.checked = true;
+            groupByCheckbox.parentElement.style.display = 'none';
+            
+            // カテゴリー検索ボックスのイベントリスナー
+            const categorySearchInput = document.getElementById('categorySearch');
+            const categorySearchResults = document.getElementById('categorySearchResults');
+            
+            categorySearchInput.addEventListener('input', function(e) {
+                const query = e.target.value;
+                
+                if (query.trim().length === 0) {
+                    categorySearchResults.classList.add('hidden');
+                    return;
+                }
+                
+                const results = searchCategories(query);
+                displaySearchResults(results, query);
+            });
+            
+            // 検索ボックスの外側をクリックしたら結果を非表示
+            document.addEventListener('click', function(e) {
+                if (!categorySearchInput.contains(e.target) && !categorySearchResults.contains(e.target)) {
+                    categorySearchResults.classList.add('hidden');
+                }
+            });
+            
+            // 検索ボックスにフォーカスしたら結果を再表示（前回の検索結果がある場合）
+            categorySearchInput.addEventListener('focus', function() {
+                if (this.value.trim().length > 0 && categorySearchResults.children.length > 0) {
+                    categorySearchResults.classList.remove('hidden');
+                }
+            });
+        });
+        
+        // 大分類選択時
+        document.getElementById('majorCategory').addEventListener('change', function() {
+            const selectedMajor = this.value;
+            const mediumSelect = document.getElementById('mediumCategory');
+            const smallSelect = document.getElementById('smallCategory');
+            
+            // 中分類と小分類をリセット
+            const mediumDefaultText = translations.select_major[currentLanguage];
+            const smallDefaultText = translations.select_medium[currentLanguage];
+            mediumSelect.innerHTML = `<option value="" data-lang-key="select_major">${mediumDefaultText}</option>`;
+            smallSelect.innerHTML = `<option value="" data-lang-key="select_medium">${smallDefaultText}</option>`;
+            smallSelect.disabled = true;
+            
+            if (selectedMajor) {
+                // 中分類のオプションを追加
+                mediumSelect.disabled = false;
+                Object.keys(categoryHierarchy[selectedMajor]).forEach(medium => {
+                    const option = document.createElement('option');
+                    option.value = medium;
+                    option.textContent = extractLanguageText(medium, currentLanguage);
+                    option.setAttribute('data-original-text', medium);
+                    mediumSelect.appendChild(option);
+                });
+            } else {
+                mediumSelect.disabled = true;
+            }
+        });
+        
+        // 中分類選択時
+        document.getElementById('mediumCategory').addEventListener('change', function() {
+            const selectedMajor = document.getElementById('majorCategory').value;
+            const selectedMedium = this.options[this.selectedIndex].getAttribute('data-original-text') || this.value;
+            const smallSelect = document.getElementById('smallCategory');
+            
+            // 小分類をリセット
+            const defaultText = translations.not_selected[currentLanguage];
+            smallSelect.innerHTML = `<option value="" data-lang-key="not_selected">${defaultText}</option>`;
+            
+            if (selectedMajor && selectedMedium) {
+                // 小分類のオプションを追加
+                smallSelect.disabled = false;
+                Object.keys(categoryHierarchy[selectedMajor][selectedMedium]).forEach(small => {
+                    const option = document.createElement('option');
+                    option.value = small;
+                    option.textContent = extractLanguageText(small, currentLanguage);
+                    option.setAttribute('data-original-text', small);
+                    smallSelect.appendChild(option);
+                });
+            } else {
+                smallSelect.disabled = true;
+            }
         });
 
         // フォーム送信処理
         document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // ページをリセット
+            currentPage = 1;
+            currentFormData = new FormData(e.target);
+            
             // UI更新
             hideError();
             hideResults();
             showLoading();
             
-            const formData = new FormData(e.target);
-            
+            await loadData(currentPage);
+        });
+        
+        // データ読み込み関数
+        async function loadData(page, append = false) {
             try {
+                const formData = new FormData();
+                
+                // ファイルとパラメータをコピー
+                if (currentFormData) {
+                    for (let [key, value] of currentFormData.entries()) {
+                        formData.append(key, value);
+                    }
+                }
+                
+                // 小分類が選択されている場合、元の業界名のリストを追加
+                const selectedSmall = document.getElementById('smallCategory').value;
+                if (selectedSmall && categoryMapping[selectedSmall]) {
+                    const originalIndustries = categoryMapping[selectedSmall];
+                    formData.set('industry_filter', originalIndustries.join(','));
+                } else {
+                    formData.set('industry_filter', 'none');
+                }
+                
+                // ページ番号を追加
+                formData.set('page', page);
+                formData.set('page_size', 10);
+                
+                console.log('Loading page:', page, 'append:', append);
+                
                 const response = await fetch('/api/process', {
                     method: 'POST',
                     body: formData
                 });
                 
                 const data = await response.json();
+                console.log('Received data:', data);
+                console.log('has_next from server:', data.has_next);
                 
                 if (response.ok) {
-                    currentData = data;
-                    displayResults(data);
+                    if (append && currentData) {
+                        // データを追加
+                        currentData.data = currentData.data.concat(data.data);
+                        currentData.total_count += data.total_count;
+                        hasNextPage = data.has_next;
+                    } else {
+                        // 新規データ
+                        currentData = data;
+                        hasNextPage = data.has_next;
+                    }
+                    console.log('Updated hasNextPage:', hasNextPage);
+                    displayResults(currentData, append);
                 } else {
                     showError(data.error || 'データの処理に失敗しました / Failed to process data');
                 }
@@ -267,7 +767,7 @@
             } finally {
                 hideLoading();
             }
-        });
+        }
 
         // URLからドメインを抽出
         function extractDomain(url) {
@@ -280,20 +780,20 @@
         }
 
         // 結果表示
-        function displayResults(data) {
+        function displayResults(data, append = false) {
             const resultsDiv = document.getElementById('results');
             const tableHeader = document.getElementById('tableHeader');
             const tableBody = document.getElementById('tableBody');
             const resultCount = document.getElementById('resultCount');
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
             const groupByDomain = document.getElementById('groupByDomain').checked;
             
-            // 列名の日英対応マッピング
+            // 列名の日英対応マッピング（視聴回数は除外）
             const columnMapping = {
-                '会社名': '会社名 / Company Name',
-                '業界名': '業界名 / Industry',
-                '国': '国 / Country',
-                'URL': 'URL',
-                '視聴回数': '視聴回数 / Views'
+                '会社名': currentLanguage === 'ja' ? '会社名' : 'Company Name',
+                '業界名': currentLanguage === 'ja' ? '業界名' : 'Industry',
+                '国': currentLanguage === 'ja' ? '国' : 'Country',
+                'URL': 'URL'
             };
             
             // テーブルヘッダーを作成
@@ -314,8 +814,10 @@
                 tableHeader.appendChild(th);
             });
             
-            // テーブルボディを作成
-            tableBody.innerHTML = '';
+            // テーブルボディを作成（追加モードでない場合はクリア）
+            if (!append) {
+                tableBody.innerHTML = '';
+            }
             
             if (groupByDomain) {
                 // ドメインごとにグループ化
@@ -331,7 +833,8 @@
                 // グループ化したデータを表示
                 Object.keys(domainGroups).forEach((domain, groupIndex) => {
                     const rows = domainGroups[domain];
-                    const totalViews = rows.reduce((sum, row) => sum + (parseFloat(row['視聴回数']) || 0), 0);
+                    // 視聴回数は内部計算のみに使用（表示しない）
+                    // const totalViews = rows.reduce((sum, row) => sum + (parseFloat(row['視聴回数']) || 0), 0);
                     
                     // グループヘッダー行
                     const headerTr = document.createElement('tr');
@@ -368,11 +871,11 @@
                     domainTd.textContent = `${domain} (${rows.length}件)`;
                     headerTr.appendChild(domainTd);
                     
-                    // 合計視聴回数
-                    const viewsTd = document.createElement('td');
-                    viewsTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
-                    viewsTd.textContent = totalViews.toLocaleString();
-                    headerTr.appendChild(viewsTd);
+                    // 合計視聴回数（表示から除外）
+                    // const viewsTd = document.createElement('td');
+                    // viewsTd.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
+                    // viewsTd.textContent = totalViews.toLocaleString();
+                    // headerTr.appendChild(viewsTd);
                     
                     // クリックイベント
                     headerTr.addEventListener('click', function() {
@@ -457,7 +960,30 @@
             }
             
             // 件数表示
-            resultCount.textContent = `${data.total_count}件のデータが見つかりました / ${data.total_count} results found`;
+            let totalDomainsText = '';
+            if (data.total_domains) {
+                if (currentLanguage === 'ja') {
+                    totalDomainsText = ` (全${data.total_domains}ドメイン)`;
+                } else {
+                    totalDomainsText = ` (${data.total_domains} total domains)`;
+                }
+            }
+            
+            if (currentLanguage === 'ja') {
+                resultCount.textContent = `${data.total_count}件のデータが見つかりました${totalDomainsText}`;
+            } else {
+                resultCount.textContent = `${data.total_count} results found${totalDomainsText}`;
+            }
+            
+            // 「次の10件を見る」ボタンの表示制御
+            console.log('hasNextPage:', hasNextPage, 'currentPage:', currentPage);
+            if (hasNextPage) {
+                loadMoreBtn.classList.remove('hidden');
+                loadMoreBtn.style.display = 'block';
+            } else {
+                loadMoreBtn.classList.add('hidden');
+                loadMoreBtn.style.display = 'none';
+            }
             
             // 結果表示
             resultsDiv.classList.remove('hidden');
@@ -485,11 +1011,14 @@
                             document.body.appendChild(screenshotPopup);
                         }
                         
+                        // ローディングメッセージを表示
                         screenshotPopup.innerHTML = `
                             <div class="text-xs text-gray-600 mb-2">
                                 &lt;fw- tag detected / &lt;fw-タグ検出
                             </div>
-                            <img src="${data.screenshot_url}" alt="Screenshot" />
+                            <div class="flex items-center justify-center p-4">
+                                <div class="loader" style="width: 30px; height: 30px; border-width: 3px;"></div>
+                            </div>
                         `;
                         
                         // 位置を設定
@@ -498,6 +1027,32 @@
                         screenshotPopup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
                         
                         screenshotPopup.classList.add('active');
+                        
+                        // 画像を読み込み
+                        const img = new Image();
+                        img.onload = function() {
+                            if (screenshotPopup && screenshotPopup.classList.contains('active')) {
+                                screenshotPopup.innerHTML = `
+                                    <div class="text-xs text-gray-600 mb-2">
+                                        &lt;fw- tag detected / &lt;fw-タグ検出
+                                    </div>
+                                    <img src="${data.screenshot_url}" alt="Screenshot" style="max-width: 400px; height: auto;" />
+                                `;
+                            }
+                        };
+                        img.onerror = function() {
+                            if (screenshotPopup && screenshotPopup.classList.contains('active')) {
+                                screenshotPopup.innerHTML = `
+                                    <div class="text-xs text-gray-600 mb-2">
+                                        &lt;fw- tag detected / &lt;fw-タグ検出
+                                    </div>
+                                    <div class="text-xs text-red-600 p-2">
+                                        Screenshot unavailable / スクリーンショットを取得できません
+                                    </div>
+                                `;
+                            }
+                        };
+                        img.src = data.screenshot_url;
                     }
                 } catch (error) {
                     console.error('Screenshot fetch error:', error);
@@ -518,13 +1073,36 @@
             }
         }
 
+        // 「次の10件を見る」ボタンのイベントリスナー
+        document.getElementById('loadMoreBtn').addEventListener('click', async () => {
+            currentPage++;
+            showLoading();
+            await loadData(currentPage, true);
+        });
+        
         // CSVダウンロード
         document.getElementById('downloadBtn').addEventListener('click', () => {
             if (!currentData) return;
             
+            // 列名を現在の言語で取得
+            const languageSpecificColumns = currentData.columns.map(col => {
+                if (currentLanguage === 'ja') {
+                    return col;
+                } else {
+                    // 日本語を英語に変換
+                    const mapping = {
+                        '会社名': 'Company Name',
+                        '業界名': 'Industry',
+                        '国': 'Country',
+                        'URL': 'URL'
+                    };
+                    return mapping[col] || col;
+                }
+            });
+            
             // CSVデータを作成
             const csv = [];
-            csv.push(currentData.columns.join(','));
+            csv.push(languageSpecificColumns.join(','));
             
             currentData.data.forEach(row => {
                 const values = currentData.columns.map(col => {
@@ -542,11 +1120,15 @@
             const bom = '\uFEFF';
             const csvContent = bom + csv.join('\n');
             
-            // ダウンロード
+            // ダウンロード（ファイル名も言語に応じて変更）
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `analysis_result_${new Date().toISOString().split('T')[0]}.csv`;
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = currentLanguage === 'ja' ? 
+                `分析結果_${dateStr}.csv` : 
+                `analysis_result_${dateStr}.csv`;
+            link.download = filename;
             link.click();
         });
 
