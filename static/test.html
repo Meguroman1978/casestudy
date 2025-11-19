@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dropdown Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        select { margin: 10px 0; padding: 5px; min-width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Dropdown Population Test</h1>
+    
+    <h2>Test Results:</h2>
+    <div id="results"></div>
+    
+    <h2>Country Dropdown:</h2>
+    <select id="countryTest">
+        <option value="">Loading...</option>
+    </select>
+    
+    <h2>Major Category Dropdown:</h2>
+    <select id="majorTest">
+        <option value="">Loading...</option>
+    </select>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        // Test 1: Fetch options API
+        fetch('/api/get-options')
+            .then(res => res.json())
+            .then(data => {
+                results.innerHTML += `<p class="success">✓ /api/get-options responded successfully</p>`;
+                results.innerHTML += `<p>Countries: ${data.countries.length} items</p>`;
+                results.innerHTML += `<p>Industries: ${data.industries.length} items</p>`;
+                
+                // Populate country dropdown
+                const countrySelect = document.getElementById('countryTest');
+                countrySelect.innerHTML = '<option value="">Select Country</option>';
+                data.countries.forEach(country => {
+                    const opt = document.createElement('option');
+                    opt.value = country;
+                    opt.textContent = country;
+                    countrySelect.appendChild(opt);
+                });
+                results.innerHTML += `<p class="success">✓ Country dropdown populated</p>`;
+            })
+            .catch(err => {
+                results.innerHTML += `<p class="error">✗ /api/get-options failed: ${err}</p>`;
+            });
+        
+        // Test 2: Fetch category hierarchy API
+        fetch('/api/get-category-hierarchy')
+            .then(res => res.json())
+            .then(data => {
+                results.innerHTML += `<p class="success">✓ /api/get-category-hierarchy responded successfully</p>`;
+                const majorCount = Object.keys(data).length;
+                results.innerHTML += `<p>Major Categories: ${majorCount} items</p>`;
+                
+                // Populate major category dropdown
+                const majorSelect = document.getElementById('majorTest');
+                majorSelect.innerHTML = '<option value="">Select Major Category</option>';
+                Object.keys(data).forEach(major => {
+                    const opt = document.createElement('option');
+                    opt.value = major;
+                    opt.textContent = major;
+                    majorSelect.appendChild(opt);
+                });
+                results.innerHTML += `<p class="success">✓ Major Category dropdown populated</p>`;
+            })
+            .catch(err => {
+                results.innerHTML += `<p class="error">✗ /api/get-category-hierarchy failed: ${err}</p>`;
+            });
+    </script>
+</body>
+</html>
