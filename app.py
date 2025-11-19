@@ -1,6 +1,9 @@
 import os
 import traceback
 import logging
+import requests
+import re
+from urllib.parse import urlparse
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
 import gspread
@@ -155,6 +158,52 @@ def get_options():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def check_fw_tag_in_url(url):
+    """指定されたURLのソースコードに<fw-タグが含まれているかチェック"""
+    try:
+        logger.info(f"Checking <fw- tag for URL: {url}")
+        # タイムアウトを設定してページを取得
+        response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        html_content = response.text
+        
+        # <fw- で始まるタグを検索
+        has_fw_tag = bool(re.search(r'<fw-[\w-]+', html_content, re.IGNORECASE))
+        logger.info(f"<fw- tag found: {has_fw_tag}")
+        
+        return has_fw_tag, html_content
+    except Exception as e:
+        logger.error(f"Error checking <fw- tag: {e}")
+        return False, None
+
+@app.route('/api/check-fw-tag', methods=['GET'])
+def api_check_fw_tag():
+    """URLの<fw-タグチェックとスクリーンショット情報を返すAPI"""
+    try:
+        url = request.args.get('url')
+        if not url:
+            return jsonify({'error': 'URL parameter is required'}), 400
+        
+        has_fw_tag, html_content = check_fw_tag_in_url(url)
+        
+        # スクリーンショットURL（要件5用）
+        # 実際のスクリーンショット取得は外部サービスを使用する想定
+        # ここではダミーのスクリーンショットURLを返す
+        screenshot_url = None
+        if has_fw_tag:
+            # 例: screenshot APIサービスを使用
+            # screenshot_url = f"https://api.screenshotmachine.com/?key=YOUR_KEY&url={url}&dimension=1024x768"
+            # または自前でスクリーンショットを生成
+            screenshot_url = f"https://via.placeholder.com/400x300?text=Screenshot+of+{urlparse(url).hostname}"
+        
+        return jsonify({
+            'has_fw_tag': has_fw_tag,
+            'screenshot_url': screenshot_url
+        })
+    except Exception as e:
+        logger.error(f"Error in check_fw_tag API: {e}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/process', methods=['POST'])
 def process_data():
     """アップロードされたファイルを処理"""
@@ -216,6 +265,23 @@ def process_data():
         if result_df is None:
             logger.error("データマージ処理に失敗")
             return jsonify({'error': 'データの処理中にエラーが発生しました。詳細はサーバーログを確認してください。'}), 500
+        
+        # 要件4: <fw-タグを含むURLのみをフィルタリング
+        logger.info("[STEP 6] <fw-タグフィルタリング開始...")
+        original_count = len(result_df)
+        
+        # URLごとに<fw-タグの存在をチェック
+        fw_tag_flags = []
+        for idx, row in result_df.iterrows():
+            url = row['URL']
+            has_fw_tag, _ = check_fw_tag_in_url(url)
+            fw_tag_flags.append(has_fw_tag)
+        
+        result_df['has_fw_tag'] = fw_tag_flags
+        result_df = result_df[result_df['has_fw_tag'] == True].copy()
+        result_df = result_df.drop('has_fw_tag', axis=1)
+        
+        logger.info(f"[STEP 6 完了] <fw-タグフィルター: {original_count}行 → {len(result_df)}行")
         
         # 一時ファイルを削除
         os.remove(video_path)
