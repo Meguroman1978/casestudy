@@ -40,12 +40,23 @@ def get_google_sheet_data():
         df = pd.read_csv(csv_url)
         logger.info(f"[STEP 1 完了] Google Sheet取得成功: {len(df)}行")
         logger.debug(f"Google Sheet カラム: {df.columns.tolist()}")
+        
+        # カラム名の正規化（'Business ID' -> 'Business Id'）
+        if 'Business ID' in df.columns:
+            df = df.rename(columns={'Business ID': 'Business Id'})
+            logger.info("カラム名を正規化: 'Business ID' -> 'Business Id'")
+        
         logger.debug(f"Business Id データ型: {df['Business Id'].dtype}")
         logger.debug(f"Business Id サンプル: {df['Business Id'].head(3).tolist()}")
         
         # Business Idを数値型に変換
         df['Business Id'] = pd.to_numeric(df['Business Id'], errors='coerce')
         logger.info(f"Business Idを数値型に変換: {df['Business Id'].dtype}")
+        
+        # Account: Industryが空欄（NaN）の場合は「不明 / Unknown」として扱う
+        if 'Account: Industry' in df.columns:
+            df['Account: Industry'] = df['Account: Industry'].fillna('不明 / Unknown')
+            logger.info(f"空欄のAccount: Industryを「不明 / Unknown」に変換")
         
         return df
     except Exception as e:

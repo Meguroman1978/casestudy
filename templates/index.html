@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>活用事例検索ツール / Use Case Search Tool</title>
+    <title id="pageTitle">活用事例検索ツール / Use Case Search Tool</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .loader {
@@ -89,7 +89,7 @@
     <div class="container mx-auto px-4 py-8 max-w-6xl">
         <!-- ヘッダー -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">活用事例検索ツール / Use Case Search Tool</h1>
+            <h1 class="text-3xl font-bold text-gray-800 mb-2" data-lang-key="page_title">活用事例検索ツール / Use Case Search Tool</h1>
             <div class="text-gray-600 space-y-2">
                 <p class="font-semibold" data-lang-key="operation_procedure">操作手順 / Operation Procedure:</p>
                 <ol class="list-decimal list-inside space-y-1 ml-4">
@@ -282,6 +282,7 @@
         
         // 言語切り替え用の翻訳テキスト
         const translations = {
+            page_title: { ja: '活用事例検索ツール', en: 'Use Case Search Tool' },
             language_settings: { ja: '言語設定', en: 'Language Settings' },
             video_file: { ja: 'Top Video Views per URL (ショート動画)', en: 'Top Video Views per URL (Short Videos)' },
             live_file: { ja: 'Top Live Stream Views per URL (ライブ配信)', en: 'Top Live Stream Views per URL (Live Streams)' },
@@ -331,6 +332,12 @@
         // 言語を切り替える関数
         function switchLanguage(lang) {
             currentLanguage = lang;
+            
+            // ページタイトル（<title>タグ）を更新
+            const titleElement = document.getElementById('pageTitle');
+            if (titleElement && translations.page_title && translations.page_title[lang]) {
+                titleElement.textContent = translations.page_title[lang];
+            }
             
             // data-lang-key属性を持つ全要素を更新
             document.querySelectorAll('[data-lang-key]').forEach(el => {
