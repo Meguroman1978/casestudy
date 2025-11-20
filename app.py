@@ -271,28 +271,46 @@ def get_options():
     try:
         sheet_df = get_google_sheet_data()
         
-        # Google Sheetからデータを取得できない場合は、デフォルトの国リストを使用
+        # 固定された国リスト（ユーザー指定）
+        fixed_countries = [
+            'Japan', 'United States', 'China', 'India', 'Pakistan', 'Brazil', 'Mexico',
+            'Egypt', 'Turkey', 'Germany', 'Thailand', 'France', 'United Kingdom',
+            'South Africa', 'Italy', 'Colombia', 'South Korea', 'Spain', 'Canada',
+            'Poland', 'Ukraine', 'Malaysia', 'Australia', 'Taiwan', 'Chile', 'Netherlands',
+            'Belgium', 'Jordan', 'Sweden', 'United Arab Emirates', 'Israel', 'Austria',
+            'Switzerland', 'Hong Kong', 'Singapore', 'Denmark', 'Norway', 'New Zealand',
+            'Ireland', 'Qatar', 'Lithuania'
+        ]
+        
+        # Google Sheetからデータを取得できない場合
         if sheet_df is None:
-            default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
             return jsonify({
                 'industries': [],
-                'countries': default_countries
+                'countries': fixed_countries
             })
         
-        # ユニークな業界名と国を取得（空でないもの）
+        # ユニークな業界名を取得（空でないもの）
         industries = sorted(sheet_df['Account: Industry'].dropna().unique().tolist())
-        countries = sorted(sheet_df['Account: Owner Territory'].dropna().unique().tolist())
         
+        # 固定された国リストを使用（Google Sheetの国データは使用しない）
         return jsonify({
             'industries': industries,
-            'countries': countries
+            'countries': fixed_countries
         })
     except Exception as e:
-        # エラーが発生した場合もデフォルトの国リストを返す
-        default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
+        # エラーが発生した場合も固定の国リストを返す
+        fixed_countries = [
+            'Japan', 'United States', 'China', 'India', 'Pakistan', 'Brazil', 'Mexico',
+            'Egypt', 'Turkey', 'Germany', 'Thailand', 'France', 'United Kingdom',
+            'South Africa', 'Italy', 'Colombia', 'South Korea', 'Spain', 'Canada',
+            'Poland', 'Ukraine', 'Malaysia', 'Australia', 'Taiwan', 'Chile', 'Netherlands',
+            'Belgium', 'Jordan', 'Sweden', 'United Arab Emirates', 'Israel', 'Austria',
+            'Switzerland', 'Hong Kong', 'Singapore', 'Denmark', 'Norway', 'New Zealand',
+            'Ireland', 'Qatar', 'Lithuania'
+        ]
         return jsonify({
             'industries': [],
-            'countries': default_countries
+            'countries': fixed_countries
         })
 
 @app.route('/api/get-category-hierarchy', methods=['GET'])
@@ -596,6 +614,81 @@ def search_logo_images(channel_name, count=3):
         logger.error(traceback.format_exc())
         return []
 
+def generate_why_firework(url, html_content, language='ja'):
+    """OpenAI APIを使用してFirework活用理由を生成"""
+    try:
+        openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+        
+        if not openai_api_key:
+            logger.warning("OPENAI_API_KEY not set")
+            fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+            return fallback
+        
+        from bs4 import BeautifulSoup
+        
+        # HTMLからテキストコンテンツを抽出
+        soup = BeautifulSoup(html_content, 'html.parser')
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        text_content = soup.get_text()
+        lines = (line.strip() for line in text_content.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        # テキストが長すぎる場合は切り詰め
+        if len(text) > 2000:
+            text = text[:2000]
+        
+        prompt = f"""以下のウェブサイトが、なぜFireworkの動画ソリューションを導入したのかを推測し、以下の情報を含む簡潔な説明（100-150文字）を作成してください：
+
+1. どのような目的でFireworkを活用しているか
+   - 例: 商品の魅力を動画で伝える、顧客エンゲージメント向上、購入率の改善など
+
+2. どのようなKPI・目標を設定しているか
+   - 例: 滞在時間の延長、コンバージョン率向上、ブランド認知度アップなど
+
+ウェブサイトの内容:
+{text}
+
+出力は{'日本語' if language == 'ja' else '英語'}で、100-150文字程度にまとめてください。"""
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {openai_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4o-mini',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'max_tokens': 250,
+                'temperature': 0.7
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            try:
+                result = response.json()
+                why_firework = result['choices'][0]['message']['content']
+                logger.info(f"Why firework generated: {why_firework[:80]}...")
+                return why_firework
+            except (ValueError, KeyError) as json_error:
+                logger.error(f"Failed to parse Why firework response: {json_error}")
+                fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+                return fallback
+        else:
+            logger.error(f"Why firework API error: {response.status_code}")
+            fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+            return fallback
+            
+    except Exception as e:
+        logger.error(f"Why firework generation error: {e}")
+        logger.error(traceback.format_exc())
+        fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+        return fallback
+
 def crawl_and_analyze_website(url, language='ja'):
     """WebクローラーでWebサイト情報を取得し、OpenAI APIで分析"""
     try:
@@ -711,13 +804,29 @@ def create_pptx():
         # WebクローラーとOpenAI APIでWebsite descriptionを取得
         website_description_enhanced = crawl_and_analyze_website(url, language) if url else fallback_website
         
+        # fwタグが設置されているページのHTMLを取得して、Why firework?を生成
+        fallback_why_firework = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+        why_firework_text = fallback_why_firework
+        
+        if url:
+            try:
+                # URLからHTMLコンテンツを取得
+                has_fw, html_content = check_fw_tag_in_url(url)
+                if html_content:
+                    why_firework_text = generate_why_firework(url, html_content, language)
+                else:
+                    logger.warning("HTML content not available for Why firework generation")
+            except Exception as e:
+                logger.error(f"Error generating Why firework: {e}")
+        
         # プレースホルダーのテキストを置換（Business NameとCompany detailsは削除）
         replacements = {
             '{Business Country}': country,
             '{Account: Industry}': industry,
             '{Channel Name}': channel_name,
             '{URL}': url,
-            '{Website description}': website_description_enhanced
+            '{Website description}': website_description_enhanced,
+            '{Why firework?}': why_firework_text
         }
         
         for shape in slide.shapes:
@@ -734,6 +843,18 @@ def create_pptx():
                 if new_text != original_text:
                     if hasattr(shape, "text_frame"):
                         shape.text_frame.text = new_text
+                        
+                        # {Website description}の場合、フォントサイズを10.5ptに設定
+                        if '{Website description}' in original_text:
+                            for paragraph in shape.text_frame.paragraphs:
+                                for run in paragraph.runs:
+                                    run.font.size = Pt(10.5)
+                        
+                        # {Why firework?}の場合、フォントサイズを10.5ptに設定（枠内に収まるように）
+                        if '{Why firework?}' in original_text:
+                            for paragraph in shape.text_frame.paragraphs:
+                                for run in paragraph.runs:
+                                    run.font.size = Pt(10.5)
                     else:
                         shape.text = new_text
         
