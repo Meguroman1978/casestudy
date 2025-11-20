@@ -597,31 +597,77 @@ def search_logo_images(channel_name, count=3):
         return []
 
 def capture_screenshot_with_playwright(url, width=1200, height=800):
-    """Playwrightを使用してスクリーンショットを撮影"""
+    """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ）"""
     try:
-        from playwright.sync_api import sync_playwright
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
         
         logger.info(f"Capturing screenshot for: {url}")
         
         with sync_playwright() as p:
             # Chromiumブラウザを起動（ヘッドレスモード）
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',  # ボット検出回避
+                    '--disable-dev-shm-usage',  # メモリ不足対策
+                    '--no-sandbox',  # サンドボックス無効化（必要な場合）
+                ]
+            )
+            
             context = browser.new_context(
                 viewport={'width': width, 'height': height},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='ja-JP',
+                timezone_id='Asia/Tokyo',
+                ignore_https_errors=True,  # SSL証明書エラーを無視
             )
             page = context.new_page()
             
-            # URLにアクセス
-            page.goto(url, wait_until='networkidle', timeout=30000)
+            # 複数の戦略でリトライ
+            strategies = [
+                {'wait_until': 'networkidle', 'timeout': 30000},  # 戦略1: networkidle
+                {'wait_until': 'domcontentloaded', 'timeout': 20000},  # 戦略2: DOMContentLoaded
+                {'wait_until': 'load', 'timeout': 15000},  # 戦略3: load
+            ]
             
-            # ページ全体のスクリーンショットを撮影
-            screenshot_bytes = page.screenshot(full_page=False, type='png')
+            screenshot_bytes = None
+            last_error = None
+            
+            for i, strategy in enumerate(strategies, 1):
+                try:
+                    logger.info(f"Screenshot attempt {i}/3: wait_until={strategy['wait_until']}, timeout={strategy['timeout']}ms")
+                    
+                    # URLにアクセス
+                    page.goto(url, **strategy)
+                    
+                    # 少し待機してページを安定させる
+                    page.wait_for_timeout(1000)
+                    
+                    # スクリーンショットを撮影
+                    screenshot_bytes = page.screenshot(full_page=False, type='png')
+                    
+                    logger.info(f"Screenshot captured successfully with strategy {i}: {len(screenshot_bytes)} bytes")
+                    break  # 成功したらループを抜ける
+                    
+                except PlaywrightTimeoutError as timeout_error:
+                    last_error = timeout_error
+                    logger.warning(f"Strategy {i} timed out: {timeout_error}")
+                    continue  # 次の戦略を試す
+                    
+                except Exception as strategy_error:
+                    last_error = strategy_error
+                    logger.warning(f"Strategy {i} failed: {strategy_error}")
+                    continue
             
             browser.close()
             
-            logger.info(f"Screenshot captured successfully: {len(screenshot_bytes)} bytes")
-            return io.BytesIO(screenshot_bytes)
+            if screenshot_bytes:
+                return io.BytesIO(screenshot_bytes)
+            else:
+                logger.error(f"All screenshot strategies failed for {url}")
+                if last_error:
+                    logger.error(f"Last error: {last_error}")
+                return None
             
     except Exception as e:
         logger.error(f"Playwright screenshot failed: {e}")
