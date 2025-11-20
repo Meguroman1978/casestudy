@@ -596,6 +596,38 @@ def search_logo_images(channel_name, count=3):
         logger.error(traceback.format_exc())
         return []
 
+def capture_screenshot_with_playwright(url, width=1200, height=800):
+    """Playwrightを使用してスクリーンショットを撮影"""
+    try:
+        from playwright.sync_api import sync_playwright
+        
+        logger.info(f"Capturing screenshot for: {url}")
+        
+        with sync_playwright() as p:
+            # Chromiumブラウザを起動（ヘッドレスモード）
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={'width': width, 'height': height},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            )
+            page = context.new_page()
+            
+            # URLにアクセス
+            page.goto(url, wait_until='networkidle', timeout=30000)
+            
+            # ページ全体のスクリーンショットを撮影
+            screenshot_bytes = page.screenshot(full_page=False, type='png')
+            
+            browser.close()
+            
+            logger.info(f"Screenshot captured successfully: {len(screenshot_bytes)} bytes")
+            return io.BytesIO(screenshot_bytes)
+            
+    except Exception as e:
+        logger.error(f"Playwright screenshot failed: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
 def crawl_and_analyze_website(url, language='ja'):
     """WebクローラーでWebサイト情報を取得し、OpenAI APIで分析"""
     try:
@@ -739,53 +771,52 @@ def create_pptx():
                 if new_text != original_text:
                     if hasattr(shape, "text_frame"):
                         shape.text_frame.text = new_text
+                        
+                        # {Website description}の場合、フォントサイズを10.5ptに設定
+                        if '{Website description}' in original_text:
+                            for paragraph in shape.text_frame.paragraphs:
+                                for run in paragraph.runs:
+                                    run.font.size = Pt(10.5)
                     else:
                         shape.text = new_text
         
-        # スクリーンショットを取得して挿入
+        # Playwrightを使用してスクリーンショットを取得して挿入
         screenshot_inserted = False
-        screenshot_api_token = os.environ.get('SCREENSHOT_API_TOKEN', '')
         
-        if not screenshot_api_token:
-            logger.warning("SCREENSHOT_API_TOKEN not set - skipping screenshot generation")
-        else:
+        if url:
             try:
-                screenshot_url = f"https://shot.screenshotapi.net/screenshot?token={screenshot_api_token}&url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
-                screenshot_response = requests.get(screenshot_url, timeout=30)
+                logger.info(f"Generating screenshot for URL: {url}")
+                img_data = capture_screenshot_with_playwright(url, width=1200, height=800)
                 
-                if screenshot_response.status_code == 200:
-                    # Content-Typeをチェックして画像かどうか確認
-                    content_type = screenshot_response.headers.get('Content-Type', '')
-                    if 'image' not in content_type.lower():
-                        logger.warning(f"Screenshot API returned non-image content: {content_type}")
-                        logger.warning(f"Response preview: {screenshot_response.text[:200]}")
-                    else:
-                        try:
-                            img_data = io.BytesIO(screenshot_response.content)
-                            img = Image.open(img_data)
+                if img_data:
+                    img = Image.open(img_data)
+                    
+                    # 画像を挿入する位置を探す
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                            left = shape.left
+                            top = shape.top
+                            width = shape.width
+                            height = shape.height
                             
-                            # 画像を挿入する位置を探す
-                            for shape in slide.shapes:
-                                if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                                    left = shape.left
-                                    top = shape.top
-                                    width = shape.width
-                                    height = shape.height
-                                    
-                                    # プレースホルダーを削除
-                                    sp = shape.element
-                                    sp.getparent().remove(sp)
-                                    
-                                    # 画像をリサイズして挿入
-                                    slide.shapes.add_picture(img_data, left, top, width=width, height=height)
-                                    screenshot_inserted = True
-                                    break
-                        except Exception as img_error:
-                            logger.error(f"Failed to process screenshot image: {img_error}")
+                            # プレースホルダーを削除
+                            sp = shape.element
+                            sp.getparent().remove(sp)
+                            
+                            # 画像をリサイズして挿入
+                            img_data.seek(0)  # バッファを先頭に戻す
+                            slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                            screenshot_inserted = True
+                            logger.info("Screenshot inserted successfully")
+                            break
                 else:
-                    logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
+                    logger.warning("Screenshot capture returned None")
+                    
             except Exception as e:
-                logger.warning(f"スクリーンショット取得失敗: {e}")
+                logger.error(f"スクリーンショット取得失敗: {e}")
+                logger.error(traceback.format_exc())
+        else:
+            logger.warning("No URL provided for screenshot")
         
         # スクリーンショットが挿入できなかった場合、フォールバックテキストを表示
         if not screenshot_inserted:

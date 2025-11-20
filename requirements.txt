@@ -10,3 +10,4 @@ gunicorn==21.2.0
 python-pptx==0.6.23
 Pillow==10.1.0
 beautifulsoup4==4.12.2
+playwright==1.56.0
