@@ -26,50 +26,59 @@ load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# 国名マッピング辞書（フルネーム → 略称）
-# データセット内では略称（JP, US, CNなど）が使用されている
-COUNTRY_CODE_MAPPING = {
-    'Japan': ['JP', 'JA', 'Japan'],
-    'United States': ['US', 'United States'],
-    'China': ['CN', 'China'],
-    'India': ['IN', 'India'],
-    'Pakistan': ['PK', 'Pakistan'],
-    'Brazil': ['BR', 'Brazil'],
-    'Mexico': ['MX', 'Mexico'],
-    'Egypt': ['EG', 'Egypt'],
-    'Turkey': ['TR', 'Turkey'],
-    'Germany': ['DE', 'Germany'],
-    'Thailand': ['TH', 'Thailand'],
-    'France': ['FR', 'France'],
-    'United Kingdom': ['GB', 'UK', 'United Kingdom'],
-    'South Africa': ['ZA', 'South Africa'],
-    'Italy': ['IT', 'Italy'],
-    'Colombia': ['CO', 'Colombia'],
-    'South Korea': ['KR', 'South Korea'],
-    'Spain': ['ES', 'Spain'],
-    'Canada': ['CA', 'Canada'],
-    'Poland': ['PL', 'Poland'],
-    'Ukraine': ['UA', 'Ukraine'],
-    'Malaysia': ['MY', 'Malaysia'],
-    'Australia': ['AU', 'Australia'],
-    'Taiwan': ['TW', 'Taiwan'],
-    'Chile': ['CL', 'Chile'],
-    'Netherlands': ['NL', 'Netherlands'],
-    'Belgium': ['BE', 'Belgium'],
-    'Jordan': ['JO', 'Jordan'],
-    'Sweden': ['SE', 'Sweden'],
-    'United Arab Emirates': ['AE', 'United Arab Emirates'],
-    'Israel': ['IL', 'Israel'],
-    'Austria': ['AT', 'Austria'],
-    'Switzerland': ['CH', 'Switzerland'],
-    'Hong Kong': ['HK', 'Hong Kong'],
-    'Singapore': ['SG', 'Singapore'],
-    'Denmark': ['DK', 'Denmark'],
-    'Norway': ['NO', 'Norway'],
-    'New Zealand': ['NZ', 'New Zealand'],
-    'Ireland': ['IE', 'Ireland'],
-    'Qatar': ['QA', 'Qatar'],
-    'Lithuania': ['LT', 'Lithuania']
+# 国名→地域マッピング辞書
+# データセット内では地域名（Americas, Europe, Japan, China/ANZ, SEA/SA/MEA, System）が使用されている
+COUNTRY_TO_REGION_MAPPING = {
+    # Americas（南北アメリカ大陸）
+    'United States': ['Americas'],
+    'Brazil': ['Americas'],
+    'Mexico': ['Americas'],
+    'Canada': ['Americas'],
+    'Colombia': ['Americas'],
+    'Chile': ['Americas'],
+    
+    # Europe（ヨーロッパ）
+    'Germany': ['Europe'],
+    'France': ['Europe'],
+    'United Kingdom': ['Europe'],
+    'Italy': ['Europe'],
+    'Spain': ['Europe'],
+    'Poland': ['Europe'],
+    'Ukraine': ['Europe'],
+    'Netherlands': ['Europe'],
+    'Belgium': ['Europe'],
+    'Sweden': ['Europe'],
+    'Austria': ['Europe'],
+    'Switzerland': ['Europe'],
+    'Denmark': ['Europe'],
+    'Norway': ['Europe'],
+    'Ireland': ['Europe'],
+    'Lithuania': ['Europe'],
+    
+    # Japan（日本）
+    'Japan': ['Japan'],
+    
+    # China/ANZ（中国・オーストラリア・ニュージーランド）
+    'China': ['China/ANZ'],
+    'Australia': ['China/ANZ'],
+    'New Zealand': ['China/ANZ'],
+    'Hong Kong': ['China/ANZ'],
+    'Taiwan': ['China/ANZ'],
+    
+    # SEA/SA/MEA（東南アジア・南アジア・中東・アフリカ）
+    'India': ['SEA/SA/MEA'],
+    'Pakistan': ['SEA/SA/MEA'],
+    'Thailand': ['SEA/SA/MEA'],
+    'Malaysia': ['SEA/SA/MEA'],
+    'Singapore': ['SEA/SA/MEA'],
+    'South Korea': ['SEA/SA/MEA'],
+    'Egypt': ['SEA/SA/MEA'],
+    'Turkey': ['SEA/SA/MEA'],
+    'South Africa': ['SEA/SA/MEA'],
+    'Jordan': ['SEA/SA/MEA'],
+    'United Arab Emirates': ['SEA/SA/MEA'],
+    'Israel': ['SEA/SA/MEA'],
+    'Qatar': ['SEA/SA/MEA']
 }
 
 app = Flask(__name__)
@@ -125,21 +134,22 @@ def get_google_sheet_data():
         logger.error(traceback.format_exc())
         return None
 
-def get_country_codes(country_name):
+def get_country_regions(country_name):
     """
-    国名から対応する国コードのリストを取得
+    国名から対応する地域名のリストを取得
     
     Args:
         country_name: フルネームの国名（例: 'Japan', 'United States'）
     
     Returns:
-        対応する国コードのリスト（例: ['JP', 'JA', 'Japan']）
+        対応する地域名のリスト（例: ['Americas'], ['Japan'], ['Europe']）
         マッピングにない場合は元の国名を返す
     """
-    if country_name in COUNTRY_CODE_MAPPING:
-        return COUNTRY_CODE_MAPPING[country_name]
+    if country_name in COUNTRY_TO_REGION_MAPPING:
+        return COUNTRY_TO_REGION_MAPPING[country_name]
     else:
         # マッピングにない場合は元の国名をそのまま返す
+        # （System などの特殊な値に対応）
         return [country_name]
 
 def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country):
@@ -209,13 +219,13 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
                 before_filter = len(merged_df)
         
         if country != 'none':
-            # 国名から対応する国コードのリストを取得
-            country_codes = get_country_codes(country)
-            logger.info(f"国名 '{country}' に対応するコード: {country_codes}")
+            # 国名から対応する地域名のリストを取得
+            regions = get_country_regions(country)
+            logger.info(f"国名 '{country}' に対応する地域: {regions}")
             
-            # データセット内の国コードが、country_codesのいずれかと一致する行を抽出
-            merged_df = merged_df[merged_df['Account: Owner Territory'].isin(country_codes)]
-            logger.info(f"国フィルター適用 ({country} → {country_codes}): {before_filter}行 → {len(merged_df)}行")
+            # データセット内の地域が、regionsのいずれかと一致する行を抽出
+            merged_df = merged_df[merged_df['Account: Owner Territory'].isin(regions)]
+            logger.info(f"国フィルター適用 ({country} → {regions}): {before_filter}行 → {len(merged_df)}行")
         
         logger.info(f"[STEP 4 完了] フィルタリング完了: {len(merged_df)}行")
         
