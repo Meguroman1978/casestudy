@@ -349,46 +349,42 @@ def get_options():
     try:
         sheet_df = get_google_sheet_data()
         
-        # 固定された国リスト（ユーザー指定）
-        fixed_countries = [
-            'Japan', 'United States', 'China', 'India', 'Pakistan', 'Brazil', 'Mexico',
-            'Egypt', 'Turkey', 'Germany', 'Thailand', 'France', 'United Kingdom',
-            'South Africa', 'Italy', 'Colombia', 'South Korea', 'Spain', 'Canada',
-            'Poland', 'Ukraine', 'Malaysia', 'Australia', 'Taiwan', 'Chile', 'Netherlands',
-            'Belgium', 'Jordan', 'Sweden', 'United Arab Emirates', 'Israel', 'Austria',
-            'Switzerland', 'Hong Kong', 'Singapore', 'Denmark', 'Norway', 'New Zealand',
-            'Ireland', 'Qatar', 'Lithuania'
+        # 地域リスト（データセットの実際の地域分類に基づく）
+        fixed_regions = [
+            'Americas',      # 南北アメリカ大陸（US, Brazil, Mexico, Canada, Colombia, Chile）
+            'Europe',        # ヨーロッパ（Germany, France, UK, Italy, Spain, etc.）
+            'Japan',         # 日本
+            'China/ANZ',     # 中国・オーストラリア・ニュージーランド
+            'SEA/SA/MEA'     # 東南アジア・南アジア・中東・アフリカ
         ]
         
         # Google Sheetからデータを取得できない場合
         if sheet_df is None:
             return jsonify({
                 'industries': [],
-                'countries': fixed_countries
+                'countries': fixed_regions
             })
         
         # ユニークな業界名を取得（空でないもの）
         industries = sorted(sheet_df['Account: Industry'].dropna().unique().tolist())
         
-        # 固定された国リストを使用（Google Sheetの国データは使用しない）
+        # 地域リストを使用（データセットの実際の地域分類に基づく）
         return jsonify({
             'industries': industries,
-            'countries': fixed_countries
+            'countries': fixed_regions
         })
     except Exception as e:
-        # エラーが発生した場合も固定の国リストを返す
-        fixed_countries = [
-            'Japan', 'United States', 'China', 'India', 'Pakistan', 'Brazil', 'Mexico',
-            'Egypt', 'Turkey', 'Germany', 'Thailand', 'France', 'United Kingdom',
-            'South Africa', 'Italy', 'Colombia', 'South Korea', 'Spain', 'Canada',
-            'Poland', 'Ukraine', 'Malaysia', 'Australia', 'Taiwan', 'Chile', 'Netherlands',
-            'Belgium', 'Jordan', 'Sweden', 'United Arab Emirates', 'Israel', 'Austria',
-            'Switzerland', 'Hong Kong', 'Singapore', 'Denmark', 'Norway', 'New Zealand',
-            'Ireland', 'Qatar', 'Lithuania'
+        # エラーが発生した場合も地域リストを返す
+        fixed_regions = [
+            'Americas',      # 南北アメリカ大陸
+            'Europe',        # ヨーロッパ
+            'Japan',         # 日本
+            'China/ANZ',     # 中国・オーストラリア・ニュージーランド
+            'SEA/SA/MEA'     # 東南アジア・南アジア・中東・アフリカ
         ]
         return jsonify({
             'industries': [],
-            'countries': fixed_countries
+            'countries': fixed_regions
         })
 
 @app.route('/api/get-category-hierarchy', methods=['GET'])
@@ -692,6 +688,84 @@ def search_logo_images(channel_name, count=3):
         logger.error(traceback.format_exc())
         return []
 
+def capture_screenshot_with_playwright(url, width=1200, height=800):
+    """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ）"""
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+        
+        logger.info(f"Capturing screenshot for: {url}")
+        
+        with sync_playwright() as p:
+            # Chromiumブラウザを起動（ヘッドレスモード）
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',  # ボット検出回避
+                    '--disable-dev-shm-usage',  # メモリ不足対策
+                    '--no-sandbox',  # サンドボックス無効化（必要な場合）
+                ]
+            )
+            
+            context = browser.new_context(
+                viewport={'width': width, 'height': height},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='ja-JP',
+                timezone_id='Asia/Tokyo',
+                ignore_https_errors=True,  # SSL証明書エラーを無視
+            )
+            page = context.new_page()
+            
+            # 複数の戦略でリトライ
+            strategies = [
+                {'wait_until': 'networkidle', 'timeout': 30000},  # 戦略1: networkidle
+                {'wait_until': 'domcontentloaded', 'timeout': 20000},  # 戦略2: DOMContentLoaded
+                {'wait_until': 'load', 'timeout': 15000},  # 戦略3: load
+            ]
+            
+            screenshot_bytes = None
+            last_error = None
+            
+            for i, strategy in enumerate(strategies, 1):
+                try:
+                    logger.info(f"Screenshot attempt {i}/3: wait_until={strategy['wait_until']}, timeout={strategy['timeout']}ms")
+                    
+                    # URLにアクセス
+                    page.goto(url, **strategy)
+                    
+                    # 少し待機してページを安定させる
+                    page.wait_for_timeout(1000)
+                    
+                    # スクリーンショットを撮影
+                    screenshot_bytes = page.screenshot(full_page=False, type='png')
+                    
+                    logger.info(f"Screenshot captured successfully with strategy {i}: {len(screenshot_bytes)} bytes")
+                    break  # 成功したらループを抜ける
+                    
+                except PlaywrightTimeoutError as timeout_error:
+                    last_error = timeout_error
+                    logger.warning(f"Strategy {i} timed out: {timeout_error}")
+                    continue  # 次の戦略を試す
+                    
+                except Exception as strategy_error:
+                    last_error = strategy_error
+                    logger.warning(f"Strategy {i} failed: {strategy_error}")
+                    continue
+            
+            browser.close()
+            
+            if screenshot_bytes:
+                return io.BytesIO(screenshot_bytes)
+            else:
+                logger.error(f"All screenshot strategies failed for {url}")
+                if last_error:
+                    logger.error(f"Last error: {last_error}")
+                return None
+            
+    except Exception as e:
+        logger.error(f"Playwright screenshot failed: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
 def generate_why_firework(url, html_content, website_description, language='ja'):
     """OpenAI APIを使用してFirework活用理由を生成（目的とKPIパターンから最適なものを選択）"""
     try:
@@ -983,19 +1057,15 @@ def create_pptx():
                     else:
                         shape.text = new_text
         
-        # スクリーンショットを取得して挿入
+        # Playwrightを使用してスクリーンショットを取得して挿入
         screenshot_inserted = False
-        screenshot_api_token = os.environ.get('SCREENSHOT_API_TOKEN', '')
         
-        if not screenshot_api_token:
-            logger.warning("SCREENSHOT_API_TOKEN not set - skipping screenshot generation")
-        else:
+        if url:
             try:
-                screenshot_url = f"https://shot.screenshotapi.net/screenshot?token={screenshot_api_token}&url={requests.utils.quote(url)}&width=1200&height=800&output=image&file_type=png&wait_for_event=load"
-                screenshot_response = requests.get(screenshot_url, timeout=30)
+                logger.info(f"Generating screenshot for URL: {url}")
+                img_data = capture_screenshot_with_playwright(url, width=1200, height=800)
                 
-                if screenshot_response.status_code == 200:
-                    img_data = io.BytesIO(screenshot_response.content)
+                if img_data:
                     img = Image.open(img_data)
                     
                     # 画像を挿入する位置を探す
@@ -1015,9 +1085,10 @@ def create_pptx():
                             screenshot_inserted = True
                             break
                 else:
-                    logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
+                    logger.warning(f"Playwright screenshot failed - no image data returned")
             except Exception as e:
                 logger.warning(f"スクリーンショット取得失敗: {e}")
+                logger.warning(traceback.format_exc())
         
         # スクリーンショットが挿入できなかった場合、フォールバックテキストを表示
         if not screenshot_inserted:

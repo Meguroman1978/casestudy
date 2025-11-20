@@ -1,0 +1,4 @@
+  File "/home/user/webapp/app.py", line 752
+    img_data = io.BytesIO(screenshot_response.content)
+    ^^^^^^^^
+IndentationError: expected an indented block after 'if' statement on line 751
