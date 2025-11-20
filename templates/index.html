@@ -927,22 +927,36 @@
                 }
                 
                 // 階層的フィルタリング: 大分類・中分類・小分類の選択状態に基づいてフィルタリング
-                const selectedMajor = document.getElementById('majorCategory').value;
-                const selectedMiddle = document.getElementById('middleCategory').value;
-                const selectedSmall = document.getElementById('smallCategory').value;
+                let selectedMajor = '';
+                let selectedMiddle = '';
+                let selectedSmall = '';
+                
+                try {
+                    const majorCategoryEl = document.getElementById('majorCategory');
+                    const middleCategoryEl = document.getElementById('middleCategory');
+                    const smallCategoryEl = document.getElementById('smallCategory');
+                    
+                    selectedMajor = majorCategoryEl ? (majorCategoryEl.value || '') : '';
+                    selectedMiddle = middleCategoryEl ? (middleCategoryEl.value || '') : '';
+                    selectedSmall = smallCategoryEl ? (smallCategoryEl.value || '') : '';
+                    
+                    console.log('Category values:', { selectedMajor, selectedMiddle, selectedSmall });
+                } catch (err) {
+                    console.error('Error getting category values:', err);
+                }
                 
                 let industriesToFilter = [];
                 
-                if (selectedSmall && categoryMapping[selectedSmall]) {
+                if (selectedSmall && categoryMapping && categoryMapping[selectedSmall]) {
                     // 小分類が選択されている場合: 該当する小分類のみ
                     industriesToFilter = categoryMapping[selectedSmall];
-                } else if (selectedMiddle && categoryHierarchy[selectedMajor] && categoryHierarchy[selectedMajor][selectedMiddle]) {
+                } else if (selectedMiddle && categoryHierarchy && categoryHierarchy[selectedMajor] && categoryHierarchy[selectedMajor][selectedMiddle]) {
                     // 中分類が選択されている場合: 該当中分類傘下のすべての小分類
                     const middleCategory = categoryHierarchy[selectedMajor][selectedMiddle];
                     for (const smallKey in middleCategory) {
                         industriesToFilter = industriesToFilter.concat(middleCategory[smallKey]);
                     }
-                } else if (selectedMajor && categoryHierarchy[selectedMajor]) {
+                } else if (selectedMajor && categoryHierarchy && categoryHierarchy[selectedMajor]) {
                     // 大分類のみ選択されている場合: 該当大分類傘下のすべての中小分類
                     const majorCategory = categoryHierarchy[selectedMajor];
                     for (const middleKey in majorCategory) {
@@ -954,7 +968,9 @@
                 }
                 
                 // 重複を除去
-                industriesToFilter = [...new Set(industriesToFilter)];
+                if (industriesToFilter.length > 0) {
+                    industriesToFilter = [...new Set(industriesToFilter)];
+                }
                 
                 if (industriesToFilter.length > 0) {
                     formData.set('industry_filter', industriesToFilter.join(','));
