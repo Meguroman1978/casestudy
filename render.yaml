@@ -3,7 +3,7 @@ services:
     name: video-case-study-analyzer
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: python download_template.py && gunicorn app:app
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -12,4 +12,6 @@ services:
       - key: GOOGLE_SHEET_ID
         sync: false
       - key: SCREENSHOT_API_TOKEN
+        sync: false
+      - key: TEMPLATE_PPTX_URL
         sync: false

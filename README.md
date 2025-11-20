@@ -67,9 +67,17 @@ export SCREENSHOT_API_TOKEN="your-screenshot-api-token-here"  # オプション
 
 ### 3. Template.pptxの配置
 
-PPTXファイル生成機能を使用する場合、`Template.pptx`ファイルをプロジェクトのルートディレクトリに配置してください。
+PPTXファイル生成機能を使用する場合、`Template.pptx`ファイルを配置する必要があります。
 
-**注意**: Template.pptxは72MBの大きなファイルのため、Gitリポジトリには含まれていません（.gitignoreに記載）。
+**ローカル開発環境:**
+- `Template.pptx`ファイルをプロジェクトのルートディレクトリに直接配置してください
+
+**本番環境（Render.com、Railway.appなど）:**
+- Template.pptxは72MBの大きなファイルのため、Gitリポジトリには含まれていません
+- クラウドストレージ（Google Drive、Dropboxなど）にTemplate.pptxをアップロード
+- 直接ダウンロード可能な公開リンクを取得
+- 環境変数`TEMPLATE_PPTX_URL`にそのURLを設定
+- デプロイ時に自動的にダウンロードされます
 
 ### 4. アプリケーションの起動
 
@@ -150,17 +158,21 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
    - GitHubリポジトリを接続: `Meguroman1978/casestudy`
    - Branch: `main`
 
-3. **環境変数の設定**
+3. **Template.pptxをクラウドストレージにアップロード（重要）**
+   - Template.pptx（72MB）をGoogle DriveまたはDropboxにアップロード
+   - 直接ダウンロード可能な公開リンクを取得
+     - **Google Drive**: 「リンクを知っている全員」で共有 → `https://drive.google.com/uc?id=FILE_ID&export=download`
+     - **Dropbox**: 共有リンクの`?dl=0`を`?dl=1`に変更
+   - このURLを次のステップで使用します
+
+4. **環境変数の設定**
    Render.comのダッシュボードで以下の環境変数を設定：
    ```
    OPENAI_API_KEY=your-openai-api-key
    GOOGLE_SHEET_ID=your-google-sheet-id
+   TEMPLATE_PPTX_URL=https://your-storage-url/Template.pptx (必須)
    SCREENSHOT_API_TOKEN=your-screenshot-token (オプション)
    ```
-
-4. **Template.pptxのアップロード**
-   - Render.comはファイルサイズ制限があるため、Template.pptxは別途クラウドストレージ（Google Drive, Dropboxなど）に保存し、アプリケーション起動時にダウンロードする仕組みが必要です
-   - または、PPTXテンプレート機能を無効化してデプロイすることも可能です
 
 5. **デプロイ実行**
    - "Create Web Service"をクリック
