@@ -657,10 +657,15 @@ def crawl_and_analyze_website(url, language='ja'):
         )
         
         if summary_response.status_code == 200:
-            result = summary_response.json()
-            summary = result['choices'][0]['message']['content']
-            logger.info(f"Website summary generated: {summary[:100]}...")
-            return summary
+            try:
+                result = summary_response.json()
+                summary = result['choices'][0]['message']['content']
+                logger.info(f"Website summary generated: {summary[:100]}...")
+                return summary
+            except (ValueError, KeyError) as json_error:
+                logger.error(f"Failed to parse OpenAI response as JSON: {json_error}")
+                logger.error(f"Response content: {summary_response.text[:500]}")
+                return fallback
         else:
             logger.error(f"OpenAI API error: {summary_response.status_code}")
             logger.error(f"Response body: {summary_response.text[:500]}")
@@ -749,25 +754,34 @@ def create_pptx():
                 screenshot_response = requests.get(screenshot_url, timeout=30)
                 
                 if screenshot_response.status_code == 200:
-                    img_data = io.BytesIO(screenshot_response.content)
-                    img = Image.open(img_data)
-                    
-                    # 画像を挿入する位置を探す
-                    for shape in slide.shapes:
-                        if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                            left = shape.left
-                            top = shape.top
-                            width = shape.width
-                            height = shape.height
+                    # Content-Typeをチェックして画像かどうか確認
+                    content_type = screenshot_response.headers.get('Content-Type', '')
+                    if 'image' not in content_type.lower():
+                        logger.warning(f"Screenshot API returned non-image content: {content_type}")
+                        logger.warning(f"Response preview: {screenshot_response.text[:200]}")
+                    else:
+                        try:
+                            img_data = io.BytesIO(screenshot_response.content)
+                            img = Image.open(img_data)
                             
-                            # プレースホルダーを削除
-                            sp = shape.element
-                            sp.getparent().remove(sp)
-                            
-                            # 画像をリサイズして挿入
-                            slide.shapes.add_picture(img_data, left, top, width=width, height=height)
-                            screenshot_inserted = True
-                            break
+                            # 画像を挿入する位置を探す
+                            for shape in slide.shapes:
+                                if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                                    left = shape.left
+                                    top = shape.top
+                                    width = shape.width
+                                    height = shape.height
+                                    
+                                    # プレースホルダーを削除
+                                    sp = shape.element
+                                    sp.getparent().remove(sp)
+                                    
+                                    # 画像をリサイズして挿入
+                                    slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                                    screenshot_inserted = True
+                                    break
+                        except Exception as img_error:
+                            logger.error(f"Failed to process screenshot image: {img_error}")
                 else:
                     logger.warning(f"Screenshot API returned status code: {screenshot_response.status_code}")
             except Exception as e:
@@ -870,9 +884,17 @@ def create_pptx():
         )
     
     except Exception as e:
-        logger.error(f"PPTX生成エラー: {e}")
+        error_message = str(e)
+        logger.error(f"PPTX生成エラー: {error_message}")
         logger.error(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+        
+        # より詳細なエラーメッセージを構築
+        if "Unexpected token" in error_message or "not valid JSON" in error_message:
+            error_message = "API通信エラー: 外部APIからの応答が正しくありません。APIキーとネットワーク接続を確認してください。"
+        elif "Template.pptx" in error_message:
+            error_message = "テンプレートファイルが見つかりません。Template.pptxファイルを配置してください。"
+        
+        return jsonify({'error': error_message}), 500
 
 @app.route('/api/export-excel', methods=['POST'])
 def export_excel():
