@@ -48,7 +48,6 @@ cp .env.example .env
 # .envファイルを編集して以下を設定:
 # - OPENAI_API_KEY: OpenAI APIキー（必須）
 # - GOOGLE_SHEET_ID: Google SheetsのID（URLの/d/と/editの間の文字列）（必須）
-# - SCREENSHOT_API_TOKEN: ScreenshotAPI.netのトークン（オプション）
 ```
 
 **方法2: 直接環境変数を設定**
@@ -56,12 +55,12 @@ cp .env.example .env
 ```bash
 export OPENAI_API_KEY="your-openai-api-key-here"
 export GOOGLE_SHEET_ID="your-google-sheet-id-here"
-export SCREENSHOT_API_TOKEN="your-screenshot-api-token-here"  # オプション
 ```
 
 **API取得方法**:
-- **OpenAI API**: https://platform.openai.com/api-keys でAPIキーを取得
-- **ScreenshotAPI.net**: https://screenshotapi.net/ でアカウント作成後、トークンを取得（オプション）
+- **OpenAI API**: https://platform.openai.com/api-keys でAPIキーを取得（必須：Website description生成用）
+
+**注意**: スクリーンショット機能は**Playwright**を使用しているため、外部APIキーは不要です
 
 **重要**: セキュリティのため、これらの値は絶対にGitにコミットしないでください。`.env`ファイルは`.gitignore`に含まれています。
 
@@ -143,7 +142,8 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
 - Google Sheetは公開設定されている必要があります
 - 一時アップロードファイルは処理後に自動削除されます
 - **OpenAI API**: PPTX生成時のWebサイト分析に必須（APIキーが無効な場合はフォールバックテキストが使用されます）
-- **ScreenshotAPI.net**: Webサイトスクリーンショットの自動挿入に使用（トークンが未設定の場合はプレースホルダーテキストが表示されます）
+- **Playwright**: Webサイトスクリーンショットの自動取得に使用（外部APIキー不要、Chromiumブラウザで動作）
+- **フォントサイズ**: Website descriptionは自動的に10.5ptに設定されます
 
 ## デプロイ（本番環境への公開）
 
@@ -168,11 +168,12 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
 4. **環境変数の設定**
    Render.comのダッシュボードで以下の環境変数を設定：
    ```
-   OPENAI_API_KEY=your-openai-api-key
-   GOOGLE_SHEET_ID=your-google-sheet-id
+   OPENAI_API_KEY=your-openai-api-key (必須)
+   GOOGLE_SHEET_ID=your-google-sheet-id (必須)
    TEMPLATE_PPTX_URL=https://your-storage-url/Template.pptx (必須)
-   SCREENSHOT_API_TOKEN=your-screenshot-token (オプション)
    ```
+   
+   **注意**: スクリーンショット機能はPlaywrightを使用するため、SCREENSHOT_API_TOKENは不要です
 
 5. **デプロイ実行**
    - "Create Web Service"をクリック
