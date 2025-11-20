@@ -614,14 +614,14 @@ def search_logo_images(channel_name, count=3):
         logger.error(traceback.format_exc())
         return []
 
-def generate_why_firework(url, html_content, language='ja'):
-    """OpenAI APIを使用してFirework活用理由を生成"""
+def generate_why_firework(url, html_content, website_description, language='ja'):
+    """OpenAI APIを使用してFirework活用理由を生成（目的とKPIパターンから最適なものを選択）"""
     try:
         openai_api_key = os.environ.get('OPENAI_API_KEY', '')
         
         if not openai_api_key:
             logger.warning("OPENAI_API_KEY not set")
-            fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+            fallback = '動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Explain product features and usage through video / Key KPI: Video completion rate'
             return fallback
         
         from bs4 import BeautifulSoup
@@ -640,18 +640,61 @@ def generate_why_firework(url, html_content, language='ja'):
         if len(text) > 2000:
             text = text[:2000]
         
-        prompt = f"""以下のウェブサイトが、なぜFireworkの動画ソリューションを導入したのかを推測し、以下の情報を含む簡潔な説明（100-150文字）を作成してください：
+        # 目的とKPIのパターンリスト
+        patterns = [
+            "着回し提案で滞在時間を延長 / 主要KPI: 平均滞在時間増加率",
+            "素材動画で不安を払拭 / 主要KPI: 離脱率低減",
+            "機能実演でCVR向上 / 主要KPI: CVRリフト (非視聴者比)",
+            "商品ページの伝達力向上 / 主要KPI: SKUカバー率",
+            "ライブ動画を通じて即時購入促進 / 主要KPI: 売上増加",
+            "限定品のライブ販売で売上最大化 / 主要KPI: 購入件数・売上",
+            "ライブでスタッフのファン化と送客 / 主要KPI: 実店舗来店率",
+            "サイマル配信で認知拡大 / 主要KPI: ライブ視聴完了率",
+            "ライブ配信でブランド認知向上 / 主要KPI: 検索数増加率",
+            "ライブ配信でブランドエンゲージメント向上 / 主要KPI: ライブ中のコメント数増加率",
+            "動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率",
+            "ライブ配信で新規ユーザーとのエンゲージメントを図る / 主要KPI: 新規視聴者数・新規視聴者率",
+            "安心のアフターケアを動画で訴求 / 主要KPI: 申込み率",
+            "悩み解決動画でカート追加促進 / 主要KPI: カート追加率",
+            "ライブ配信でセット購入促進 / 主要KPI: セット購入率",
+            "サイズ感説明動画で障壁低減 / 主要KPI: CVRリフト (非視聴者比)",
+            "多様な利用シーンを動画で紹介 / 主要KPI: まとめ買い購入率",
+            "商品の操作性を動画で解説 / 主要KPI: CVRリフト (非視聴者比)",
+            "設置イメージ動画で決定促進 / 主要KPI: カート追加リフト (非視聴者比)",
+            "AIFAQで疑問即時解消 / 主要KPI: チャット満足度",
+            "動画を活用し商品ページのコンテンツをリッチ化 / 主要KPI: サイト滞在時間",
+            "AIFAQで人的負荷を軽減 / 主要KPI: エスカレーション率低減",
+            "AIFAQ分析結果を商品開発へ活用 / 主要KPI: 質問内容（定性）",
+            "ライブの双方向性でインサイト獲得 / 主要KPI: コメントの内容（定性評価）",
+            "パーソナライズ動画レコメンド強化 / 主要KPI: 平均サイト滞在時間",
+            "カテゴリ横断動画でまとめ買い促進 / 主要KPI: セット購入平均点数",
+            "動画導入でデジタル体験向上 / 主要KPI: LTV増加率"
+        ]
+        
+        patterns_text = "\n".join([f"{i+1}. {p}" for i, p in enumerate(patterns)])
+        
+        prompt = f"""以下のウェブサイトの情報を分析し、Fireworkの動画ソリューション活用について最も関連性の高い「目的とKPI」のパターンを1つ選んでください。
 
-1. どのような目的でFireworkを活用しているか
-   - 例: 商品の魅力を動画で伝える、顧客エンゲージメント向上、購入率の改善など
+ウェブサイトの概要:
+{website_description}
 
-2. どのようなKPI・目標を設定しているか
-   - 例: 滞在時間の延長、コンバージョン率向上、ブランド認知度アップなど
+ウェブサイトのコンテンツ（一部）:
+{text[:1000]}
 
-ウェブサイトの内容:
-{text}
+利用可能な目的とKPIパターン:
+{patterns_text}
 
-出力は{'日本語' if language == 'ja' else '英語'}で、100-150文字程度にまとめてください。"""
+指示:
+1. 上記のパターンから最も関連性が高いものを1つ選択してください
+2. 選択したパターンをベースに、このウェブサイト固有の状況に合わせてカスタマイズした文章を作成してください
+3. 出力は80-120文字程度で、「目的 / 主要KPI: KPI名」の形式で記述してください
+4. {'日本語' if language == 'ja' else '英語'}で出力してください
+
+例:
+- アパレルブランドの場合: 「着回し提案動画で滞在時間を延長し、購入検討を促進 / 主要KPI: 平均滞在時間増加率」
+- 家電メーカーの場合: 「操作性を動画で分かりやすく解説し購入不安を解消 / 主要KPI: CVRリフト (非視聴者比)」
+
+出力（カスタマイズされた1文のみ）:"""
 
         response = requests.post(
             'https://api.openai.com/v1/chat/completions',
@@ -662,7 +705,7 @@ def generate_why_firework(url, html_content, language='ja'):
             json={
                 'model': 'gpt-4o-mini',
                 'messages': [{'role': 'user', 'content': prompt}],
-                'max_tokens': 250,
+                'max_tokens': 200,
                 'temperature': 0.7
             },
             timeout=30
@@ -671,22 +714,23 @@ def generate_why_firework(url, html_content, language='ja'):
         if response.status_code == 200:
             try:
                 result = response.json()
-                why_firework = result['choices'][0]['message']['content']
-                logger.info(f"Why firework generated: {why_firework[:80]}...")
+                why_firework = result['choices'][0]['message']['content'].strip()
+                logger.info(f"Why firework generated: {why_firework}")
                 return why_firework
             except (ValueError, KeyError) as json_error:
                 logger.error(f"Failed to parse Why firework response: {json_error}")
-                fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+                fallback = '動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Explain product features and usage through video / Key KPI: Video completion rate'
                 return fallback
         else:
             logger.error(f"Why firework API error: {response.status_code}")
-            fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+            logger.error(f"Response: {response.text[:500]}")
+            fallback = '動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Explain product features and usage through video / Key KPI: Video completion rate'
             return fallback
             
     except Exception as e:
         logger.error(f"Why firework generation error: {e}")
         logger.error(traceback.format_exc())
-        fallback = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+        fallback = '動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Explain product features and usage through video / Key KPI: Video completion rate'
         return fallback
 
 def crawl_and_analyze_website(url, language='ja'):
@@ -805,7 +849,7 @@ def create_pptx():
         website_description_enhanced = crawl_and_analyze_website(url, language) if url else fallback_website
         
         # fwタグが設置されているページのHTMLを取得して、Why firework?を生成
-        fallback_why_firework = 'Fireworkの動画ソリューションを活用してエンゲージメント向上を実現' if language == 'ja' else 'Leveraging Firework video solutions to enhance engagement'
+        fallback_why_firework = '動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Explain product features and usage through video / Key KPI: Video completion rate'
         why_firework_text = fallback_why_firework
         
         if url:
@@ -813,11 +857,14 @@ def create_pptx():
                 # URLからHTMLコンテンツを取得
                 has_fw, html_content = check_fw_tag_in_url(url)
                 if html_content:
-                    why_firework_text = generate_why_firework(url, html_content, language)
+                    # website_descriptionも渡して、より正確な分析を行う
+                    why_firework_text = generate_why_firework(url, html_content, website_description_enhanced, language)
+                    logger.info(f"Why firework text generated: {why_firework_text}")
                 else:
                     logger.warning("HTML content not available for Why firework generation")
             except Exception as e:
                 logger.error(f"Error generating Why firework: {e}")
+                logger.error(traceback.format_exc())
         
         # プレースホルダーのテキストを置換（Business NameとCompany detailsは削除）
         replacements = {
@@ -850,11 +897,11 @@ def create_pptx():
                                 for run in paragraph.runs:
                                     run.font.size = Pt(10.5)
                         
-                        # {Why firework?}の場合、フォントサイズを10.5ptに設定（枠内に収まるように）
+                        # {Why firework?}の場合、フォントサイズを9ptに設定（枠内に収まるように）
                         if '{Why firework?}' in original_text:
                             for paragraph in shape.text_frame.paragraphs:
                                 for run in paragraph.runs:
-                                    run.font.size = Pt(10.5)
+                                    run.font.size = Pt(9)
                     else:
                         shape.text = new_text
         
