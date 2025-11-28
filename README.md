@@ -189,7 +189,10 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
    GOOGLE_SLIDES_ID=1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess
    ```
    
-   **重要**: これらの値は絶対にGitHubにコミットしないでください。Render.comのダッシュボードで安全に設定します。
+   **注意:** 
+   - Python 3.11.11は `runtime.txt` で自動設定されます（PYTHON_VERSIONは不要）
+   - これらの値は絶対にGitHubにコミットしないでください
+   - Render.comのダッシュボードで安全に設定します
 
 5. **デプロイ実行**
    - "Create Web Service"をクリック

@@ -41,13 +41,9 @@
 
 ### 必須の環境変数
 
-#### 1. PYTHON_VERSION
-```
-Key: PYTHON_VERSION
-Value: 3.11.0
-```
+**注意:** Python 3.11.11は `runtime.txt` と `.python-version` で自動設定されます。PYTHON_VERSIONを手動で設定する必要はありません。
 
-#### 2. OPENAI_API_KEY
+#### 1. OPENAI_API_KEY
 ```
 Key: OPENAI_API_KEY
 Value: [あなたのOpenAI APIキー - .envファイルから確認してください]
@@ -56,13 +52,13 @@ Value: [あなたのOpenAI APIキー - .envファイルから確認してくだ�
 **注意:** 実際のAPIキーは `/home/user/webapp/.env` ファイルに保存されています。
 このファイルはGitにコミットされていないため、ローカル環境でのみ確認できます。
 
-#### 3. GOOGLE_SHEET_ID
+#### 2. GOOGLE_SHEET_ID
 ```
 Key: GOOGLE_SHEET_ID
 Value: 1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk
 ```
 
-#### 4. GOOGLE_SLIDES_ID
+#### 3. GOOGLE_SLIDES_ID
 ```
 Key: GOOGLE_SLIDES_ID
 Value: 1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess

@@ -47,12 +47,11 @@ python download_template_from_slides.py && gunicorn app:app --bind 0.0.0.0:$PORT
 
 ### ステップ5: 環境変数を設定
 
-**「Add Environment Variable」で4つの変数を追加:**
+**「Add Environment Variable」で3つの変数を追加:**
+
+**注意:** Python 3.11.11は `runtime.txt` で自動設定されるため、PYTHON_VERSIONは不要です。
 
 ```
-Key: PYTHON_VERSION
-Value: 3.11.0
-
 Key: OPENAI_API_KEY
 Value: [.envファイルから取得 - 以下のコマンドで確認できます]
 
