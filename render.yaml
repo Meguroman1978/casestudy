@@ -3,7 +3,7 @@ services:
     name: video-case-study-analyzer
     env: python
     buildCommand: pip install -r requirements.txt && playwright install --with-deps chromium
-    startCommand: python download_template.py && gunicorn app:app
+    startCommand: python download_template_from_slides.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
@@ -11,7 +11,5 @@ services:
         sync: false
       - key: GOOGLE_SHEET_ID
         sync: false
-      - key: SCREENSHOT_API_TOKEN
-        sync: false
-      - key: TEMPLATE_PPTX_URL
+      - key: GOOGLE_SLIDES_ID
         sync: false

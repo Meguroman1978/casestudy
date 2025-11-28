@@ -48,6 +48,7 @@ cp .env.example .env
 # .envファイルを編集して以下を設定:
 # - OPENAI_API_KEY: OpenAI APIキー（必須）
 # - GOOGLE_SHEET_ID: Google SheetsのID（URLの/d/と/editの間の文字列）（必須）
+# - GOOGLE_SLIDES_ID: Google SlidesのID（テンプレート用）（必須）
 ```
 
 **方法2: 直接環境変数を設定**
@@ -55,6 +56,7 @@ cp .env.example .env
 ```bash
 export OPENAI_API_KEY="your-openai-api-key-here"
 export GOOGLE_SHEET_ID="your-google-sheet-id-here"
+export GOOGLE_SLIDES_ID="your-google-slides-id-here"
 ```
 
 **API取得方法**:
@@ -64,24 +66,39 @@ export GOOGLE_SHEET_ID="your-google-sheet-id-here"
 
 **重要**: セキュリティのため、これらの値は絶対にGitにコミットしないでください。`.env`ファイルは`.gitignore`に含まれています。
 
-### 3. Template.pptxの配置
+### 3. Google Slidesテンプレートの設定
 
-PPTXファイル生成機能を使用する場合、`Template.pptx`ファイルを配置する必要があります。
+PPTXファイル生成機能は**Google Slides**をテンプレートとして使用します。
+
+**Google Slidesの準備:**
+1. テンプレート用のGoogle Slidesを作成または準備
+2. Google SlidesのURLからIDを取得
+   - 例: `https://docs.google.com/presentation/d/1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess/edit`
+   - IDは `/d/` と `/edit` の間の部分: `1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess`
+3. **重要**: Google Slidesを「リンクを知っている全員が閲覧可」に設定してください
+   - 右上の「共有」→「リンクを知っている全員」→「閲覧者」
+4. 環境変数 `GOOGLE_SLIDES_ID` にIDを設定
 
 **ローカル開発環境:**
-- `Template.pptx`ファイルをプロジェクトのルートディレクトリに直接配置してください
+```bash
+export GOOGLE_SLIDES_ID="1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess"
+python download_template_from_slides.py  # Template.pptxをダウンロード
+```
 
-**本番環境（Render.com、Railway.appなど）:**
-- Template.pptxは72MBの大きなファイルのため、Gitリポジトリには含まれていません
-- クラウドストレージ（Google Drive、Dropboxなど）にTemplate.pptxをアップロード
-- 直接ダウンロード可能な公開リンクを取得
-- 環境変数`TEMPLATE_PPTX_URL`にそのURLを設定
-- デプロイ時に自動的にダウンロードされます
+**本番環境（Render.com等）:**
+- 環境変数 `GOOGLE_SLIDES_ID` を設定するだけで、デプロイ時に自動的にTemplate.pptxがダウンロードされます
 
 ### 4. アプリケーションの起動
 
+**初回起動時（Template.pptxのダウンロード）:**
 ```bash
+python download_template_from_slides.py  # Google SlidesからTemplate.pptxをダウンロード
 python app.py
+```
+
+**2回目以降:**
+```bash
+python app.py  # Template.pptxが既に存在する場合はダウンロード不要
 ```
 
 アプリケーションは `http://localhost:5000` で起動します。
@@ -158,22 +175,21 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
    - GitHubリポジトリを接続: `Meguroman1978/casestudy`
    - Branch: `main`
 
-3. **Template.pptxをクラウドストレージにアップロード（重要）**
-   - Template.pptx（72MB）をGoogle DriveまたはDropboxにアップロード
-   - 直接ダウンロード可能な公開リンクを取得
-     - **Google Drive**: 「リンクを知っている全員」で共有 → `https://drive.google.com/uc?id=FILE_ID&export=download`
-     - **Dropbox**: 共有リンクの`?dl=0`を`?dl=1`に変更
-   - このURLを次のステップで使用します
+3. **Google Slidesの準備（重要）**
+   - テンプレート用のGoogle Slidesを準備
+   - Google SlidesのURLからIDを取得（例: `1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess`）
+   - **必須**: Google Slidesを「リンクを知っている全員が閲覧可」に設定
+     - 右上の「共有」→「リンクを知っている全員」→「閲覧者」
 
 4. **環境変数の設定**
    Render.comのダッシュボードで以下の環境変数を設定：
    ```
-   OPENAI_API_KEY=your-openai-api-key (必須)
-   GOOGLE_SHEET_ID=your-google-sheet-id (必須)
-   TEMPLATE_PPTX_URL=https://your-storage-url/Template.pptx (必須)
+   OPENAI_API_KEY=（新しく生成したOpenAI APIキー - 古いキーは無効化済み）
+   GOOGLE_SHEET_ID=1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk
+   GOOGLE_SLIDES_ID=1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess
    ```
    
-   **注意**: スクリーンショット機能はPlaywrightを使用するため、SCREENSHOT_API_TOKENは不要です
+   **重要**: これらの値は絶対にGitHubにコミットしないでください。Render.comのダッシュボードで安全に設定します。
 
 5. **デプロイ実行**
    - "Create Web Service"をクリック
