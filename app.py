@@ -13,6 +13,7 @@ from google.oauth2.service_account import Credentials
 from werkzeug.utils import secure_filename
 from pptx import Presentation
 from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
 from PIL import Image
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -25,6 +26,66 @@ load_dotenv()
 # ロギング設定
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# 国名→地域マッピング辞書
+# データセット内では地域名（Americas, Europe, Japan, China/ANZ, SEA/SA/MEA, System）が使用されている
+COUNTRY_TO_REGION_MAPPING = {
+    # 地域名→地域名（Google Sheetの Account: Owner Territory に地域名が直接入っている場合）
+    'Americas': ['Americas'],
+    'Europe': ['Europe'],
+    'Japan': ['Japan'],
+    'China/ANZ': ['China/ANZ'],
+    'SEA/SA/MEA': ['SEA/SA/MEA'],
+    
+    # 以下は後方互換のため保持（個別の国名が使われる場合）
+    # Americas（南北アメリカ大陸）
+    'United States': ['Americas'],
+    'Brazil': ['Americas'],
+    'Mexico': ['Americas'],
+    'Canada': ['Americas'],
+    'Colombia': ['Americas'],
+    'Chile': ['Americas'],
+    
+    # Europe（ヨーロッパ）
+    'Germany': ['Europe'],
+    'France': ['Europe'],
+    'United Kingdom': ['Europe'],
+    'Italy': ['Europe'],
+    'Spain': ['Europe'],
+    'Poland': ['Europe'],
+    'Ukraine': ['Europe'],
+    'Netherlands': ['Europe'],
+    'Belgium': ['Europe'],
+    'Sweden': ['Europe'],
+    'Austria': ['Europe'],
+    'Switzerland': ['Europe'],
+    'Denmark': ['Europe'],
+    'Norway': ['Europe'],
+    'Ireland': ['Europe'],
+    'Lithuania': ['Europe'],
+    
+    # China/ANZ（中国・オーストラリア・ニュージーランド）
+    'China': ['China/ANZ'],
+    'Australia': ['China/ANZ'],
+    'New Zealand': ['China/ANZ'],
+    'Hong Kong': ['China/ANZ'],
+    'Taiwan': ['China/ANZ'],
+    
+    # SEA/SA/MEA（東南アジア・南アジア・中東・アフリカ）
+    'India': ['SEA/SA/MEA'],
+    'Pakistan': ['SEA/SA/MEA'],
+    'Thailand': ['SEA/SA/MEA'],
+    'Malaysia': ['SEA/SA/MEA'],
+    'Singapore': ['SEA/SA/MEA'],
+    'South Korea': ['SEA/SA/MEA'],
+    'Egypt': ['SEA/SA/MEA'],
+    'Turkey': ['SEA/SA/MEA'],
+    'South Africa': ['SEA/SA/MEA'],
+    'Jordan': ['SEA/SA/MEA'],
+    'United Arab Emirates': ['SEA/SA/MEA'],
+    'Israel': ['SEA/SA/MEA'],
+    'Qatar': ['SEA/SA/MEA']
+}
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -79,7 +140,25 @@ def get_google_sheet_data():
         logger.error(traceback.format_exc())
         return None
 
-def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country):
+def get_country_regions(country_name):
+    """
+    国名から対応する地域名のリストを取得
+    
+    Args:
+        country_name: フルネームの国名（例: 'Japan', 'United States'）
+    
+    Returns:
+        対応する地域名のリスト（例: ['Americas'], ['Japan'], ['Europe']）
+        マッピングにない場合は元の国名を返す
+    """
+    if country_name in COUNTRY_TO_REGION_MAPPING:
+        return COUNTRY_TO_REGION_MAPPING[country_name]
+    else:
+        # マッピングにない場合は元の国名をそのまま返す
+        # （System などの特殊な値に対応）
+        return [country_name]
+
+def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter='none'):
     """データをマージしてフィルタリングする"""
     try:
         logger.info("[STEP 2] データマージ処理開始")
@@ -146,8 +225,13 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
                 before_filter = len(merged_df)
         
         if country != 'none':
-            merged_df = merged_df[merged_df['Account: Owner Territory'] == country]
-            logger.info(f"国フィルター適用 ({country}): {before_filter}行 → {len(merged_df)}行")
+            # 国名から対応する地域名のリストを取得
+            regions = get_country_regions(country)
+            logger.info(f"国名 '{country}' に対応する地域: {regions}")
+            
+            # データセット内の地域が、regionsのいずれかと一致する行を抽出
+            merged_df = merged_df[merged_df['Account: Owner Territory'].isin(regions)]
+            logger.info(f"国フィルター適用 ({country} → {regions}): {before_filter}行 → {len(merged_df)}行")
         
         logger.info(f"[STEP 4 完了] フィルタリング完了: {len(merged_df)}行")
         
@@ -175,6 +259,9 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
         new_column_names.extend(['業種', '国', 'URL', '_views'])
         
         result_df.columns = new_column_names
+        
+        # フォーマット列を追加（初期値は空文字列）
+        result_df['フォーマット'] = ''
         
         # NaNを空文字列に変換
         result_df = result_df.fillna('')
@@ -271,28 +358,42 @@ def get_options():
     try:
         sheet_df = get_google_sheet_data()
         
-        # Google Sheetからデータを取得できない場合は、デフォルトの国リストを使用
+        # 地域リスト（データセットの実際の地域分類に基づく）
+        fixed_regions = [
+            'Americas',      # 南北アメリカ大陸（US, Brazil, Mexico, Canada, Colombia, Chile）
+            'Europe',        # ヨーロッパ（Germany, France, UK, Italy, Spain, etc.）
+            'Japan',         # 日本
+            'China/ANZ',     # 中国・オーストラリア・ニュージーランド
+            'SEA/SA/MEA'     # 東南アジア・南アジア・中東・アフリカ
+        ]
+        
+        # Google Sheetからデータを取得できない場合
         if sheet_df is None:
-            default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
             return jsonify({
                 'industries': [],
-                'countries': default_countries
+                'countries': fixed_regions
             })
         
-        # ユニークな業界名と国を取得（空でないもの）
+        # ユニークな業界名を取得（空でないもの）
         industries = sorted(sheet_df['Account: Industry'].dropna().unique().tolist())
-        countries = sorted(sheet_df['Account: Owner Territory'].dropna().unique().tolist())
         
+        # 地域リストを使用（データセットの実際の地域分類に基づく）
         return jsonify({
             'industries': industries,
-            'countries': countries
+            'countries': fixed_regions
         })
     except Exception as e:
-        # エラーが発生した場合もデフォルトの国リストを返す
-        default_countries = ['Japan', 'United States', 'United Kingdom', 'Germany', 'France', 'System']
+        # エラーが発生した場合も地域リストを返す
+        fixed_regions = [
+            'Americas',      # 南北アメリカ大陸
+            'Europe',        # ヨーロッパ
+            'Japan',         # 日本
+            'China/ANZ',     # 中国・オーストラリア・ニュージーランド
+            'SEA/SA/MEA'     # 東南アジア・南アジア・中東・アフリカ
+        ]
         return jsonify({
             'industries': [],
-            'countries': default_countries
+            'countries': fixed_regions
         })
 
 @app.route('/api/get-category-hierarchy', methods=['GET'])
@@ -307,8 +408,67 @@ def get_category_hierarchy():
         logger.error(f"Category hierarchy load error: {e}")
         return jsonify({'error': str(e)}), 500
 
+def detect_firework_format(html_content):
+    """
+    HTMLコンテンツからFireworkスクリプトのフォーマットを検出
+    
+    Returns:
+        str: 検出されたフォーマット名（複数ある場合は最初のもの）、なければ'Unknown'
+    """
+    if not html_content:
+        return 'Unknown'
+    
+    # 各フォーマットの検出パターン（優先順位順）
+    format_patterns = [
+        # Horizontal Carousel: style属性にthumbnailが含まれる
+        (r'<fw-embed-feed[^>]*style=["\'][^"\']*thumbnail[^"\']*["\'][^>]*>', 'Horizontal Carousel'),
+        
+        # Dynamic Carousel: thumbnail_style="dynamic"
+        (r'<fw-embed-feed[^>]*thumbnail_style=["\']dynamic["\'][^>]*>', 'Dynamic Carousel'),
+        
+        # Grid: mode="grid"
+        (r'<fw-embed-feed[^>]*mode=["\']grid["\'][^>]*>', 'Grid'),
+        
+        # Carousel: mode="row"
+        (r'<fw-embed-feed[^>]*mode=["\']row["\'][^>]*>', 'Carousel'),
+        
+        # Story Block: <fw-embed-feed> without mode/style/thumbnail_style
+        (r'<fw-embed-feed(?![^>]*(?:mode=|style=|thumbnail_style=))[^>]*>', 'Story Block'),
+        
+        # Circle Stories: thumbnail_shape="circle"
+        (r'<fw-stories[^>]*thumbnail_shape=["\']circle["\'][^>]*>', 'Circle Stories'),
+        
+        # Vertical Stories: thumbnail_shape="rectangle"
+        (r'<fw-stories[^>]*thumbnail_shape=["\']rectangle["\'][^>]*>', 'Vertical Stories'),
+        
+        # Floating Player: mode="pinned"
+        (r'<fw-storyblock[^>]*mode=["\']pinned["\'][^>]*>', 'Floating Player'),
+        
+        # Horizontal Player
+        (r'<fw-player[^>]*>', 'Horizontal Player'),
+        
+        # Hero Unit
+        (r'<fw-herounit[^>]*>', 'Hero Unit'),
+        
+        # Player Deck
+        (r'<fw-player-deck[^>]*>', 'Player Deck'),
+    ]
+    
+    # 各パターンをチェック
+    for pattern, format_name in format_patterns:
+        if re.search(pattern, html_content, re.IGNORECASE | re.DOTALL):
+            logger.debug(f"Detected format: {format_name}")
+            return format_name
+    
+    # どのパターンにもマッチしない場合
+    if re.search(r'<fw-[\w-]+', html_content, re.IGNORECASE):
+        logger.debug("Firework tag found but format unknown")
+        return 'Unknown'
+    
+    return 'Unknown'
+
 def check_fw_tag_in_url(url):
-    """指定されたURLのソースコードに<fw-タグが含まれているかチェック"""
+    """指定されたURLのソースコードに<fw-タグが含まれているかチェックし、フォーマットも検出"""
     try:
         logger.info(f"Checking <fw- tag for URL: {url}")
         # タイムアウトを設定してページを取得
@@ -319,10 +479,14 @@ def check_fw_tag_in_url(url):
         has_fw_tag = bool(re.search(r'<fw-[\w-]+', html_content, re.IGNORECASE))
         logger.info(f"<fw- tag found: {has_fw_tag}")
         
-        return has_fw_tag, html_content
+        # フォーマットを検出
+        format_name = detect_firework_format(html_content) if has_fw_tag else 'Unknown'
+        logger.info(f"Detected format: {format_name}")
+        
+        return has_fw_tag, html_content, format_name
     except Exception as e:
         logger.error(f"Error checking <fw- tag: {e}")
-        return False, None
+        return False, None, 'Unknown'
 
 @app.route('/api/check-fw-tag', methods=['GET'])
 def api_check_fw_tag():
@@ -388,10 +552,11 @@ def process_data():
         case_type = request.form.get('case_type', 'short_video')
         industry_filter = request.form.get('industry_filter', 'none')
         country = request.form.get('country', 'none')
+        format_filter = request.form.get('format_filter', 'none')
         page = int(request.form.get('page', 1))
         page_size = int(request.form.get('page_size', 5))  # デフォルトを5に変更（最大5チャンネル表示）
         
-        logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, ページ={page}")
+        logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, フォーマット={format_filter}, ページ={page}")
         
         # ファイルを一時保存
         video_filename = secure_filename(video_file.filename)
@@ -418,7 +583,7 @@ def process_data():
             return jsonify({'error': 'Google Sheetからデータを取得できませんでした'}), 500
         
         # データのマージとフィルタリング
-        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country)
+        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter)
         
         if result_df is None:
             logger.error("データマージ処理に失敗")
@@ -440,16 +605,17 @@ def process_data():
         logger.info(f"並列URLチェック開始: {original_count}件のURL")
         
         def check_url_wrapper(url):
-            """URLチェックのラッパー関数"""
+            """URLチェックのラッパー関数（フォーマット検出も含む）"""
             try:
-                has_fw_tag, _ = check_fw_tag_in_url(url)
-                return (url, has_fw_tag)
+                has_fw_tag, html_content, format_name = check_fw_tag_in_url(url)
+                return (url, has_fw_tag, format_name)
             except Exception as e:
                 logger.error(f"URLチェック失敗 ({url}): {e}")
-                return (url, False)
+                return (url, False, 'Unknown')
         
         # 並列実行
         url_to_flag = {}
+        url_to_format = {}
         with ThreadPoolExecutor(max_workers=10) as executor:
             # すべてのURLに対してチェックを送信
             future_to_url = {executor.submit(check_url_wrapper, row['URL']): row['URL'] 
@@ -458,15 +624,25 @@ def process_data():
             # 完了したものから結果を取得
             completed = 0
             for future in as_completed(future_to_url):
-                url, has_fw_tag = future.result()
+                url, has_fw_tag, format_name = future.result()
                 url_to_flag[url] = has_fw_tag
+                url_to_format[url] = format_name
                 completed += 1
                 if completed % 10 == 0:
                     logger.info(f"進行状況: {completed}/{original_count} URLチェック完了")
         
         # 結果をDataFrameに反映
         detailed_data['has_fw_tag'] = detailed_data['URL'].map(url_to_flag)
+        detailed_data['フォーマット'] = detailed_data['URL'].map(url_to_format)
+        
+        # fwタグがあるものだけをフィルター
         filtered_data = detailed_data[detailed_data['has_fw_tag'] == True].copy()
+        
+        # フォーマットフィルター適用
+        if format_filter and format_filter != 'none' and format_filter != '選択しない':
+            before_format_filter = len(filtered_data)
+            filtered_data = filtered_data[filtered_data['フォーマット'] == format_filter].copy()
+            logger.info(f"フォーマットフィルター適用 ({format_filter}): {before_format_filter}行 → {len(filtered_data)}行")
         
         # 内部使用列を削除（フロントエンドで使用しないため）
         if 'ドメイン' in filtered_data.columns:
@@ -475,6 +651,22 @@ def process_data():
             filtered_data = filtered_data.drop('has_fw_tag', axis=1)
         if '_views' in filtered_data.columns:
             filtered_data = filtered_data.drop('_views', axis=1)
+        
+        # 列の順序を調整：チャンネル名、業種、国、フォーマット、URL
+        desired_order = []
+        if 'チャンネル名' in filtered_data.columns:
+            desired_order.append('チャンネル名')
+        if '業種' in filtered_data.columns:
+            desired_order.append('業種')
+        if '国' in filtered_data.columns:
+            desired_order.append('国')
+        if 'フォーマット' in filtered_data.columns:
+            desired_order.append('フォーマット')
+        if 'URL' in filtered_data.columns:
+            desired_order.append('URL')
+        
+        # 順序通りに列を並べ替え
+        filtered_data = filtered_data[desired_order]
         
         logger.info(f"[STEP 7 完了] <fw-タグフィルター: {original_count}行 → {len(filtered_data)}行")
         
@@ -557,16 +749,24 @@ def translate_text(text, target_lang='en'):
     
     return text
 
-def search_logo_images(channel_name, count=3):
-    """Channel nameでロゴ画像を検索（OpenAI DALL-E検索機能を使用）"""
+def search_logo_images(channel_name, country='', industry='', count=3):
+    """Channel name + Country + Industryでロゴ画像を検索（検索精度向上）"""
     try:
         from bs4 import BeautifulSoup
         import urllib.parse
         
-        logger.info(f"Searching logos for: {channel_name}")
+        # 検索クエリを構築: Channel Name + Country + Industry で検索精度向上
+        search_parts = [channel_name]
+        if country and country != '選択しない':
+            search_parts.append(country)
+        if industry and industry != '選択しない':
+            search_parts.append(industry)
+        search_parts.append('logo')
+        
+        search_query = ' '.join(search_parts)
+        logger.info(f"Searching logos with query: {search_query}")
         
         # Google画像検索のURL（スクレイピング）
-        search_query = f"{channel_name} logo"
         encoded_query = urllib.parse.quote(search_query)
         search_url = f"https://www.google.com/search?q={encoded_query}&tbm=isch"
         
@@ -596,21 +796,204 @@ def search_logo_images(channel_name, count=3):
         logger.error(traceback.format_exc())
         return []
 
-def capture_screenshot_with_playwright(url, width=1200, height=800):
-    """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ）"""
+def save_complete_html_page(url, output_path):
+    """
+    Playwrightを使用してページ全体を単一のHTMLファイルとして保存
+    （CSS、画像などすべてのリソースをインライン化、リッチデザイン維持）
+    
+    Args:
+        url: 保存対象のURL
+        output_path: 保存先のファイルパス
+    
+    Returns:
+        bool: 成功した場合True
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+        
+        logger.info(f"Saving complete HTML page for: {url}")
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={'width': 1200, 'height': 800},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            )
+            page = context.new_page()
+            
+            # ページに移動（networkidleを使用してすべてのリソースが読み込まれるまで待つ）
+            try:
+                logger.info("Loading page with networkidle wait...")
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                logger.info("✅ Page loaded with networkidle")
+            except Exception as e:
+                logger.warning(f"networkidle failed, falling back to load: {e}")
+                try:
+                    page.goto(url, wait_until='load', timeout=20000)
+                    logger.info("✅ Page loaded with load event")
+                except Exception as e2:
+                    logger.warning(f"load failed, falling back to domcontentloaded: {e2}")
+                    page.goto(url, wait_until='domcontentloaded', timeout=20000)
+                    logger.info("✅ Page loaded with domcontentloaded")
+            
+            # 追加の待機時間でJavaScriptが完全に実行されるのを待つ
+            page.wait_for_timeout(5000)
+            
+            # 🎨 リッチなHTMLコンテンツを取得（より包括的なスタイル保存）
+            complete_html = page.evaluate("""
+                async () => {
+                    // すべての画像のsrcを絶対URLに変換
+                    document.querySelectorAll('img').forEach(img => {
+                        if (img.src) {
+                            img.setAttribute('src', img.src);
+                        }
+                        if (img.srcset) {
+                            img.setAttribute('srcset', img.srcset);
+                        }
+                    });
+                    
+                    // すべてのリンク（CSS）のhrefを絶対URLに変換
+                    document.querySelectorAll('link[href]').forEach(link => {
+                        link.setAttribute('href', link.href);
+                    });
+                    
+                    // すべてのスクリプトのsrcを絶対URLに変換
+                    document.querySelectorAll('script[src]').forEach(script => {
+                        script.setAttribute('src', script.src);
+                    });
+                    
+                    // 🆕 すべての要素に計算されたスタイルをインライン化（より包括的）
+                    // body配下のすべての可視要素を対象
+                    const allElements = document.querySelectorAll('body *');
+                    const styleProps = [
+                        'background-color', 'background-image', 'background-size', 'background-position',
+                        'color', 'font-family', 'font-size', 'font-weight', 'font-style',
+                        'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+                        'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+                        'border', 'border-radius', 'border-width', 'border-style', 'border-color',
+                        'display', 'position', 'width', 'height', 'max-width', 'max-height',
+                        'flex', 'flex-direction', 'justify-content', 'align-items',
+                        'text-align', 'line-height', 'letter-spacing',
+                        'opacity', 'z-index', 'box-shadow', 'text-shadow',
+                        'transform', 'transition'
+                    ];
+                    
+                    let inlinedCount = 0;
+                    allElements.forEach(el => {
+                        try {
+                            const computedStyle = window.getComputedStyle(el);
+                            let inlineStyle = el.getAttribute('style') || '';
+                            
+                            styleProps.forEach(prop => {
+                                const value = computedStyle.getPropertyValue(prop);
+                                if (value && 
+                                    value !== 'none' && 
+                                    value !== 'normal' && 
+                                    value !== 'auto' &&
+                                    value !== 'rgba(0, 0, 0, 0)' &&
+                                    value !== 'transparent') {
+                                    inlineStyle += `${prop}:${value};`;
+                                }
+                            });
+                            
+                            if (inlineStyle) {
+                                el.setAttribute('style', inlineStyle);
+                                inlinedCount++;
+                            }
+                        } catch(e) {
+                            // 個別要素のエラーは無視して続行
+                        }
+                    });
+                    
+                    console.log('Inlined styles for', inlinedCount, 'elements');
+                    
+                    // 🆕 <style>タグの内容も保持（既存のCSSルールを維持）
+                    document.querySelectorAll('style').forEach(styleTag => {
+                        styleTag.setAttribute('data-original', 'true');
+                    });
+                    
+                    return document.documentElement.outerHTML;
+                }
+            """)
+            
+            # 🆕 外部CSSファイルをダウンロードしてインライン化
+            try:
+                logger.info("Downloading and inlining external CSS files...")
+                
+                # CSSリンクを取得
+                css_links = page.evaluate("""
+                    () => {
+                        return Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+                            .map(link => link.href)
+                            .filter(href => href && href.startsWith('http'));
+                    }
+                """)
+                
+                logger.info(f"Found {len(css_links)} external CSS files")
+                
+                # CSSをダウンロード
+                downloaded_css = []
+                for css_url in css_links[:20]:  # 最大20個まで（パフォーマンス考慮）
+                    try:
+                        logger.info(f"Downloading CSS: {css_url}")
+                        css_response = requests.get(css_url, timeout=10, headers={
+                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                        })
+                        if css_response.status_code == 200:
+                            downloaded_css.append(css_response.text)
+                            logger.info(f"✅ Downloaded {len(css_response.text)} bytes from {css_url}")
+                    except Exception as css_error:
+                        logger.warning(f"Failed to download CSS {css_url}: {css_error}")
+                
+                # CSSを<style>タグとして追加
+                if downloaded_css:
+                    css_style_tag = '<style data-inlined-external="true">\n' + '\n'.join(downloaded_css) + '\n</style>'
+                    # <head>タグの最後に追加
+                    complete_html = complete_html.replace('</head>', f'{css_style_tag}\n</head>')
+                    logger.info(f"✅ Inlined {len(downloaded_css)} external CSS files")
+                
+            except Exception as css_error:
+                logger.warning(f"Failed to inline external CSS: {css_error}")
+            
+            # HTMLファイルとして保存
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(complete_html)
+            
+            browser.close()
+            logger.info(f"✅ Rich HTML page with inlined CSS saved successfully: {output_path}")
+            return True
+            
+    except Exception as e:
+        logger.error(f"Failed to save HTML page: {e}")
+        logger.error(traceback.format_exc())
+        return False
+
+def capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=None):
+    """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ + アクセス強化モード）
+    
+    Args:
+        url: スクリーンショット対象のURL
+        width: ビューポート幅
+        height: ビューポート高さ
+        firework_format: Fireworkフォーマット名（指定された場合、そのフォーマットが表示されている箇所を撮影）
+    """
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
         
-        logger.info(f"Capturing screenshot for: {url}")
+        logger.info(f"Capturing screenshot for: {url}, format: {firework_format}")
         
         with sync_playwright() as p:
-            # Chromiumブラウザを起動（ヘッドレスモード）
+            # Chromiumブラウザを起動（ヘッドレスモード + アクセス強化）
             browser = p.chromium.launch(
                 headless=True,
                 args=[
                     '--disable-blink-features=AutomationControlled',  # ボット検出回避
                     '--disable-dev-shm-usage',  # メモリ不足対策
-                    '--no-sandbox',  # サンドボックス無効化（必要な場合）
+                    '--no-sandbox',  # サンドボックス無効化
+                    '--disable-setuid-sandbox',  # セキュリティサンドボックス無効化
+                    '--disable-web-security',  # ⚡ アクセス強化: Web Security無効化
+                    '--disable-features=IsolateOrigins,site-per-process',  # ⚡ アクセス強化: CORS回避
+                    '--disable-site-isolation-trials',  # ⚡ アクセス強化: サイト分離無効化
                 ]
             )
             
@@ -620,14 +1003,60 @@ def capture_screenshot_with_playwright(url, width=1200, height=800):
                 locale='ja-JP',
                 timezone_id='Asia/Tokyo',
                 ignore_https_errors=True,  # SSL証明書エラーを無視
+                bypass_csp=True,  # ⚡ アクセス強化: CSP（Content Security Policy）をバイパス
+                java_script_enabled=True,  # JavaScript有効化
             )
+            
+            # ⚡ アクセス強化: リクエストヘッダーにカスタムヘッダーを追加
+            context.set_extra_http_headers({
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+            })
+            
             page = context.new_page()
             
-            # 複数の戦略でリトライ
+            # ⚡ アクセス強化: ボット検出回避のためのJavaScript注入
+            page.add_init_script("""
+                // Webdriverプロパティを隠蔽
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+                
+                // Chrome特有のプロパティを追加
+                window.chrome = {
+                    runtime: {}
+                };
+                
+                // Permissions APIをモック
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+                
+                // Plugin配列を追加
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+                
+                // 言語設定
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['ja-JP', 'ja', 'en-US', 'en']
+                });
+            """)
+            
+            # 複数の戦略でリトライ（domcontentloadedを優先）
             strategies = [
-                {'wait_until': 'networkidle', 'timeout': 30000},  # 戦略1: networkidle
-                {'wait_until': 'domcontentloaded', 'timeout': 20000},  # 戦略2: DOMContentLoaded
-                {'wait_until': 'load', 'timeout': 15000},  # 戦略3: load
+                {'wait_until': 'domcontentloaded', 'timeout': 20000},  # 戦略1: DOMContentLoaded（最も速い）
+                {'wait_until': 'load', 'timeout': 20000},  # 戦略2: load
+                {'wait_until': 'networkidle', 'timeout': 25000},  # 戦略3: networkidle（最も厳格だが遅い）
             ]
             
             screenshot_bytes = None
@@ -641,13 +1070,569 @@ def capture_screenshot_with_playwright(url, width=1200, height=800):
                     page.goto(url, **strategy)
                     
                     # 少し待機してページを安定させる
-                    page.wait_for_timeout(1000)
+                    page.wait_for_timeout(2000)  # 2秒に短縮
                     
-                    # スクリーンショットを撮影
-                    screenshot_bytes = page.screenshot(full_page=False, type='png')
+                    # ⚡ 強力なポップアップ・モーダルクロージング
+                    try:
+                        logger.info("Aggressively closing all popups and modals...")
+                        
+                        # JavaScriptでポップアップを強制的に削除（より積極的）
+                        page.evaluate("""
+                            () => {
+                                // 1. 固定位置の要素を削除（ポップアップやモーダル）
+                                const fixedElements = Array.from(document.querySelectorAll('*')).filter(el => {
+                                    const style = window.getComputedStyle(el);
+                                    return style.position === 'fixed' || style.position === 'absolute';
+                                });
+                                fixedElements.forEach(el => {
+                                    // Firework要素は保持
+                                    const tagName = el.tagName.toLowerCase();
+                                    if (!tagName.startsWith('fw-')) {
+                                        const zIndex = parseInt(window.getComputedStyle(el).zIndex);
+                                        // z-indexが高い要素（ポップアップの可能性）を削除
+                                        if (zIndex > 100) {
+                                            el.style.display = 'none';
+                                            el.remove();
+                                        }
+                                    }
+                                });
+                                
+                                // 2. z-indexが非常に高い要素を削除
+                                const highZIndexElements = Array.from(document.querySelectorAll('*')).filter(el => {
+                                    const zIndex = parseInt(window.getComputedStyle(el).zIndex);
+                                    return zIndex > 1000;
+                                });
+                                highZIndexElements.forEach(el => {
+                                    if (!el.tagName.toLowerCase().startsWith('fw-')) {
+                                        el.style.display = 'none';
+                                        el.remove();
+                                    }
+                                });
+                                
+                                // 3. 一般的なモーダル・オーバーレイクラスを削除
+                                const modalSelectors = [
+                                    '.modal', '.popup', '.overlay', '.dialog',
+                                    '.modal-overlay', '.popup-overlay', '.modal-backdrop',
+                                    '[class*="overlay"]', '[id*="overlay"]',
+                                    '[class*="modal"]', '[id*="modal"]',
+                                    '[class*="popup"]', '[id*="popup"]',
+                                    '[class*="dialog"]', '[id*="dialog"]'
+                                ];
+                                modalSelectors.forEach(selector => {
+                                    try {
+                                        const elements = document.querySelectorAll(selector);
+                                        elements.forEach(el => {
+                                            if (!el.tagName.toLowerCase().startsWith('fw-')) {
+                                                el.style.display = 'none';
+                                                el.remove();
+                                            }
+                                        });
+                                    } catch (e) {}
+                                });
+                                
+                                // 4. WorldShopping関連を削除
+                                const wsElements = document.querySelectorAll('[class*="ws-"], [id*="ws-"], [class*="worldshopping"], [id*="worldshopping"]');
+                                wsElements.forEach(el => {
+                                    el.style.display = 'none';
+                                    el.remove();
+                                });
+                                
+                                // 5. iframeを削除（Firework以外）
+                                const iframes = document.querySelectorAll('iframe');
+                                iframes.forEach(iframe => {
+                                    const src = iframe.src || '';
+                                    if (!src.includes('firework') && !src.includes('fw-')) {
+                                        iframe.style.display = 'none';
+                                        iframe.remove();
+                                    }
+                                });
+                                
+                                // 6. bodyのスクロールを有効化し、overflow: hiddenを解除
+                                document.body.style.overflow = 'auto !important';
+                                document.body.style.position = 'static';
+                                document.documentElement.style.overflow = 'auto !important';
+                                document.documentElement.style.position = 'static';
+                                
+                                // 7. 半透明の背景要素を削除（opacity < 1 かつ大きい要素）
+                                Array.from(document.querySelectorAll('*')).forEach(el => {
+                                    const style = window.getComputedStyle(el);
+                                    const opacity = parseFloat(style.opacity);
+                                    const width = el.offsetWidth;
+                                    const height = el.offsetHeight;
+                                    // 画面サイズより大きく、半透明の要素はオーバーレイの可能性
+                                    if (opacity < 1 && opacity > 0 && width > window.innerWidth * 0.8 && height > window.innerHeight * 0.8) {
+                                        if (!el.tagName.toLowerCase().startsWith('fw-')) {
+                                            el.style.display = 'none';
+                                            el.remove();
+                                        }
+                                    }
+                                });
+                                
+                                // 🆕 8. テキストベースのフィルタリング: 特定のテキストを含む要素を削除
+                                const popupTexts = [
+                                    '海外にお住まいのお客様へ',
+                                    '海外にお住まいのお客様',
+                                    'お住まいのお客様へ',
+                                    'Cookie',
+                                    'クッキー',
+                                    '個人情報保護方針',
+                                    'プライバシーポリシー',
+                                    '同意する',
+                                    'Accept',
+                                    '閉じる',
+                                    'Close',
+                                    'WorldShopping'
+                                ];
+                                
+                                Array.from(document.querySelectorAll('*')).forEach(el => {
+                                    if (el.tagName.toLowerCase().startsWith('fw-')) return;
+                                    
+                                    const text = el.textContent || '';
+                                    const innerText = el.innerText || '';
+                                    
+                                    for (const popupText of popupTexts) {
+                                        if (text.includes(popupText) || innerText.includes(popupText)) {
+                                            const style = window.getComputedStyle(el);
+                                            if (style.position === 'fixed' || 
+                                                style.position === 'absolute' || 
+                                                parseInt(style.zIndex) > 50) {
+                                                el.style.display = 'none';
+                                                el.remove();
+                                                console.log('Removed popup with text:', popupText);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        """)
+                        
+                        logger.info("Popups removed via JavaScript (1st pass)")
+                        # ポップアップ削除後、少し待機してDOMを安定させる
+                        page.wait_for_timeout(2000)
+                        
+                        # 🆕 2回目のポップアップ削除（遅延表示されるポップアップ対策）
+                        logger.info("Running 2nd popup removal pass for delayed popups...")
+                        page.evaluate("""
+                            () => {
+                                // テキストベースのフィルタリング（2回目）
+                                const popupTexts = [
+                                    '海外にお住まいのお客様へ',
+                                    '海外にお住まいのお客様',
+                                    'お住まいのお客様へ',
+                                    'Cookie', 'クッキー',
+                                    '個人情報保護方針',
+                                    'プライバシーポリシー',
+                                    '同意する', 'Accept',
+                                    '閉じる', 'Close',
+                                    'WorldShopping'
+                                ];
+                                
+                                Array.from(document.querySelectorAll('*')).forEach(el => {
+                                    if (el.tagName.toLowerCase().startsWith('fw-')) return;
+                                    
+                                    const text = el.textContent || '';
+                                    const innerText = el.innerText || '';
+                                    
+                                    for (const popupText of popupTexts) {
+                                        if (text.includes(popupText) || innerText.includes(popupText)) {
+                                            const style = window.getComputedStyle(el);
+                                            if (style.position === 'fixed' || 
+                                                style.position === 'absolute' || 
+                                                parseInt(style.zIndex) > 50) {
+                                                el.style.display = 'none';
+                                                el.remove();
+                                                console.log('Removed delayed popup with text:', popupText);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                });
+                                
+                                // 固定位置の高z-index要素も再削除
+                                Array.from(document.querySelectorAll('*')).forEach(el => {
+                                    if (el.tagName.toLowerCase().startsWith('fw-')) return;
+                                    const style = window.getComputedStyle(el);
+                                    const zIndex = parseInt(style.zIndex);
+                                    if ((style.position === 'fixed' || style.position === 'absolute') && zIndex > 500) {
+                                        el.style.display = 'none';
+                                        el.remove();
+                                    }
+                                });
+                            }
+                        """)
+                        logger.info("✅ 2nd popup removal pass complete")
+                        page.wait_for_timeout(1000)
+                        
+                    except Exception as popup_error:
+                        logger.warning(f"JavaScript popup removal failed: {popup_error}")
                     
-                    logger.info(f"Screenshot captured successfully with strategy {i}: {len(screenshot_bytes)} bytes")
-                    break  # 成功したらループを抜ける
+                    # Fireworkフォーマットが指定されている場合、そのフォーマットの要素を探す
+                    if firework_format and firework_format != 'Unknown':
+                        try:
+                            logger.info(f"Looking for specific Firework format: {firework_format}")
+                            
+                            # フォーマット名に基づいて適切な要素を探す
+                            format_to_selector_map = {
+                                'Horizontal Carousel': {'selector': 'fw-embed-feed', 'attribute': 'style', 'value': 'thumbnail'},
+                                'Dynamic Carousel': {'selector': 'fw-embed-feed', 'attribute': 'thumbnail_style', 'value': 'dynamic'},
+                                'Grid': {'selector': 'fw-embed-feed', 'attribute': 'mode', 'value': 'grid'},
+                                'Carousel': {'selector': 'fw-embed-feed', 'attribute': 'mode', 'value': 'row'},
+                                'Story Block': {'selector': 'fw-embed-feed', 'exclude_attrs': ['mode', 'style', 'thumbnail_style']},
+                                'Circle Stories': {'selector': 'fw-stories', 'attribute': 'thumbnail_shape', 'value': 'circle'},
+                                'Vertical Stories': {'selector': 'fw-stories', 'attribute': 'thumbnail_shape', 'value': 'rectangle'},
+                                'Floating Player': {'selector': 'fw-storyblock', 'attribute': 'mode', 'value': 'pinned'},
+                                'Horizontal Player': {'selector': 'fw-player'},
+                                'Hero Unit': {'selector': 'fw-herounit'},
+                                'Player Deck': {'selector': 'fw-player-deck'},
+                            }
+                            
+                            element_found = None
+                            
+                            if firework_format in format_to_selector_map:
+                                format_config = format_to_selector_map[firework_format]
+                                selector = format_config['selector']
+                                
+                                logger.info(f"Searching for <{selector}> elements...")
+                                
+                                # JavaScriptでFirework要素を直接探す（より確実）
+                                # 引数を1つのオブジェクトにまとめる（Playwright制限対応）
+                                search_params = {
+                                    'selector': selector,
+                                    'attrName': format_config.get('attribute'),
+                                    'attrValue': format_config.get('value'),
+                                    'excludeAttrs': format_config.get('exclude_attrs', [])
+                                }
+                                
+                                matching_elements = page.evaluate("""
+                                    (params) => {
+                                        const elements = Array.from(document.querySelectorAll(params.selector));
+                                        const results = [];
+                                        
+                                        elements.forEach((el, index) => {
+                                            const isVisible = el.offsetWidth > 0 && el.offsetHeight > 0;
+                                            if (!isVisible) return;
+                                            
+                                            const outerHTML = el.outerHTML;
+                                            let matches = false;
+                                            
+                                            if (params.attrName) {
+                                                if (params.attrName === 'style') {
+                                                    matches = outerHTML.includes(params.attrValue);
+                                                } else {
+                                                    const attrVal = el.getAttribute(params.attrName);
+                                                    matches = attrVal === params.attrValue;
+                                                }
+                                            } else if (params.excludeAttrs && params.excludeAttrs.length > 0) {
+                                                matches = !params.excludeAttrs.some(attr => el.hasAttribute(attr));
+                                            } else {
+                                                matches = true;
+                                            }
+                                            
+                                            if (matches) {
+                                                const rect = el.getBoundingClientRect();
+                                                results.push({
+                                                    index: index,
+                                                    top: rect.top,
+                                                    left: rect.left,
+                                                    width: rect.width,
+                                                    height: rect.height,
+                                                    outerHTML: outerHTML.substring(0, 200)
+                                                });
+                                            }
+                                        });
+                                        
+                                        return results;
+                                    }
+                                """, search_params)
+                                
+                                logger.info(f"JavaScript found {len(matching_elements)} matching elements")
+                                
+                                # 要素が見つからない場合、追加で待機してリトライ
+                                if len(matching_elements) == 0:
+                                    logger.warning("No elements found on first attempt, waiting 8 more seconds...")
+                                    page.wait_for_timeout(8000)  # 5秒→8秒に延長
+                                    
+                                    # 再度検索
+                                    matching_elements = page.evaluate("""
+                                        (params) => {
+                                            const elements = Array.from(document.querySelectorAll(params.selector));
+                                            const results = [];
+                                            
+                                            elements.forEach((el, index) => {
+                                                const isVisible = el.offsetWidth > 0 && el.offsetHeight > 0;
+                                                if (!isVisible) return;
+                                                
+                                                const outerHTML = el.outerHTML;
+                                                let matches = false;
+                                                
+                                                if (params.attrName) {
+                                                    if (params.attrName === 'style') {
+                                                        matches = outerHTML.includes(params.attrValue);
+                                                    } else {
+                                                        const attrVal = el.getAttribute(params.attrName);
+                                                        matches = attrVal === params.attrValue;
+                                                    }
+                                                } else if (params.excludeAttrs && params.excludeAttrs.length > 0) {
+                                                    matches = !params.excludeAttrs.some(attr => el.hasAttribute(attr));
+                                                } else {
+                                                    matches = true;
+                                                }
+                                                
+                                                if (matches) {
+                                                    const rect = el.getBoundingClientRect();
+                                                    results.push({
+                                                        index: index,
+                                                        top: rect.top,
+                                                        left: rect.left,
+                                                        width: rect.width,
+                                                        height: rect.height,
+                                                        outerHTML: outerHTML.substring(0, 200)
+                                                    });
+                                                }
+                                            });
+                                            
+                                            return results;
+                                        }
+                                    """, search_params)
+                                    logger.info(f"After retry: JavaScript found {len(matching_elements)} matching elements")
+                                
+                                if len(matching_elements) > 0:
+                                    # 最初のマッチする要素を使用
+                                    target_info = matching_elements[0]
+                                    logger.info(f"Target element: index={target_info['index']}, size={target_info['width']}x{target_info['height']}")
+                                    logger.info(f"HTML: {target_info['outerHTML']}")
+                                    
+                                    # 要素を取得
+                                    all_elements = page.locator(selector).all()
+                                    if target_info['index'] < len(all_elements):
+                                        element_found = all_elements[target_info['index']]
+                                        
+                                        # 🔥 NEW APPROACH: JavaScriptで要素を確実にビューポートの中央にスクロール
+                                        logger.info("Scrolling element to center of viewport using JavaScript...")
+                                        scroll_result = element_found.evaluate("""
+                                            el => {
+                                                // 要素をビューポートの中央にスクロール
+                                                el.scrollIntoView({
+                                                    behavior: 'auto',  // smooth scrollは使わない（完了を待てない）
+                                                    block: 'center',   // 縦方向中央
+                                                    inline: 'center'   // 横方向中央
+                                                });
+                                                
+                                                // スクロール後の位置を返す
+                                                const rect = el.getBoundingClientRect();
+                                                const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+                                                
+                                                return {
+                                                    scrolledTo: scrollY,
+                                                    viewportY: rect.top,
+                                                    viewportX: rect.left,
+                                                    viewportBottom: rect.bottom,
+                                                    width: rect.width,
+                                                    height: rect.height
+                                                };
+                                            }
+                                        """)
+                                        
+                                        logger.info(f"Scroll result: viewportY={scroll_result['viewportY']}, height={scroll_result['height']}, scrolledTo={scroll_result['scrolledTo']}")
+                                        
+                                        # スクロールアニメーション完了を待つ
+                                        page.wait_for_timeout(2000)
+                                        
+                                        # 🎥 Floating Playerの場合、動画がロードされるまで待つ
+                                        if firework_format == 'Floating Player':
+                                            logger.info("🎥 Waiting for Floating Player video to load...")
+                                            try:
+                                                # fw-storyblock内のvideo/iframe要素が現れるまで待機
+                                                page.wait_for_selector('fw-storyblock video, fw-storyblock iframe', timeout=10000)
+                                                logger.info("✅ Video element detected")
+                                                # 動画の初期化を待つ（追加で2-3秒）
+                                                page.wait_for_timeout(3000)
+                                                logger.info("✅ Video loading wait complete")
+                                            except Exception as video_wait_error:
+                                                logger.warning(f"⚠️ Video wait timeout or error: {video_wait_error}")
+                                                # タイムアウトしても続行（動画がない場合もある）
+                                                pass
+                                        
+                                        # 再度ポップアップをJavaScriptで削除（より積極的 + テキストベースフィルタリング）
+                                        try:
+                                            page.evaluate("""
+                                                () => {
+                                                    // 固定位置の要素を全て削除
+                                                    const fixedElements = Array.from(document.querySelectorAll('*')).filter(el => {
+                                                        const style = window.getComputedStyle(el);
+                                                        return (style.position === 'fixed' || style.position === 'absolute') && 
+                                                               parseInt(style.zIndex) > 100;
+                                                    });
+                                                    fixedElements.forEach(el => {
+                                                        if (!el.tagName.toLowerCase().startsWith('fw-')) {
+                                                            el.style.display = 'none';
+                                                            el.remove();
+                                                        }
+                                                    });
+                                                    
+                                                    // オーバーレイ系を全て削除
+                                                    const overlaySelectors = ['.modal', '.popup', '.overlay', '.dialog', '[class*="overlay"]', '[class*="modal"]'];
+                                                    overlaySelectors.forEach(selector => {
+                                                        try {
+                                                            document.querySelectorAll(selector).forEach(el => {
+                                                                if (!el.tagName.toLowerCase().startsWith('fw-')) {
+                                                                    el.style.display = 'none';
+                                                                    el.remove();
+                                                                }
+                                                            });
+                                                        } catch(e) {}
+                                                    });
+                                                    
+                                                    // 🆕 テキストベースのフィルタリング: 特定のテキストを含む要素を削除
+                                                    const popupTexts = [
+                                                        '海外にお住まいのお客様へ',
+                                                        '海外にお住まいのお客様',
+                                                        'お住まいのお客様へ',
+                                                        'Cookie',
+                                                        'クッキー',
+                                                        '個人情報保護方針',
+                                                        'プライバシーポリシー',
+                                                        '同意する',
+                                                        'Accept',
+                                                        '閉じる',
+                                                        'Close'
+                                                    ];
+                                                    
+                                                    // すべての要素をチェック
+                                                    Array.from(document.querySelectorAll('*')).forEach(el => {
+                                                        // Firework要素はスキップ
+                                                        if (el.tagName.toLowerCase().startsWith('fw-')) return;
+                                                        
+                                                        const text = el.textContent || '';
+                                                        const innerText = el.innerText || '';
+                                                        
+                                                        // ポップアップテキストが含まれているかチェック
+                                                        for (const popupText of popupTexts) {
+                                                            if (text.includes(popupText) || innerText.includes(popupText)) {
+                                                                // この要素またはその親要素を削除
+                                                                const style = window.getComputedStyle(el);
+                                                                // 固定位置または高いz-indexを持つ場合
+                                                                if (style.position === 'fixed' || 
+                                                                    style.position === 'absolute' || 
+                                                                    parseInt(style.zIndex) > 50) {
+                                                                    el.style.display = 'none';
+                                                                    el.remove();
+                                                                    console.log('Removed popup with text:', popupText);
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    });
+                                                }
+                                            """)
+                                            logger.info("✅ Popups removed after scroll (with text-based filtering)")
+                                        except Exception as e:
+                                            logger.warning(f"Popup removal after scroll failed: {e}")
+                                        page.wait_for_timeout(500)
+                                        
+                                        # 🔥 要素を含む周辺コンテキストをスクリーンショット
+                                        try:
+                                            # 再度要素の位置情報を取得（ポップアップ削除後）
+                                            element_info = element_found.evaluate("""
+                                                el => {
+                                                    const rect = el.getBoundingClientRect();
+                                                    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+                                                    const viewportHeight = window.innerHeight;
+                                                    
+                                                    return {
+                                                        viewportY: rect.top,
+                                                        viewportX: rect.left,
+                                                        width: rect.width,
+                                                        height: rect.height,
+                                                        scrollY: scrollY,
+                                                        viewportHeight: viewportHeight,
+                                                        visible: rect.width > 0 && rect.height > 0,
+                                                        inViewport: rect.top >= 0 && rect.bottom <= viewportHeight,
+                                                        bottom: rect.bottom
+                                                    };
+                                                }
+                                            """)
+                                            
+                                            logger.info(f"Element position after popup removal: viewportY={element_info['viewportY']}, height={element_info['height']}, visible={element_info['visible']}, inViewport={element_info['inViewport']}, scrollY={element_info['scrollY']}")
+                                            
+                                            if element_info['visible'] and element_info['height'] > 0:
+                                                # ビューポート座標を使用してスクリーンショット
+                                                viewport_y = element_info['viewportY']
+                                                element_height = element_info['height']
+                                                viewport_height = element_info['viewportHeight']
+                                                
+                                                # パディング（上下に余白を追加）
+                                                padding_top = 200  # 上部の余白を増やす
+                                                padding_bottom = 200  # 下部の余白を増やす
+                                                
+                                                # clip座標を計算（ビューポート座標系）
+                                                # 要素の上部 - padding_top が開始位置
+                                                clip_y = max(0, viewport_y - padding_top)
+                                                
+                                                # 終了位置は要素の下部 + padding_bottom、ただしビューポート高さを超えない
+                                                clip_end_y = min(viewport_y + element_height + padding_bottom, viewport_height)
+                                                clip_height = clip_end_y - clip_y
+                                                
+                                                logger.info(f"Clip calculation: clip_y={clip_y}, clip_height={clip_height}, viewport_height={viewport_height}")
+                                                
+                                                # clip_heightが有効範囲内にあることを確認
+                                                if clip_height > 50 and clip_height <= viewport_height:
+                                                    logger.info(f"📸 Capturing screenshot with clip: x=0, y={clip_y}, w={width}, h={clip_height}")
+                                                    
+                                                    screenshot_bytes = page.screenshot(
+                                                        type='png',
+                                                        full_page=False,  # ビューポートのみをキャプチャ
+                                                        clip={
+                                                            'x': 0,
+                                                            'y': clip_y,
+                                                            'width': width,
+                                                            'height': clip_height
+                                                        }
+                                                    )
+                                                    logger.info(f"✅ Screenshot captured successfully: {len(screenshot_bytes)} bytes")
+                                                else:
+                                                    # clip_heightが無効な場合、ビューポート全体をスクリーンショット
+                                                    logger.warning(f"⚠️ Invalid clip_height: {clip_height}, capturing full viewport instead")
+                                                    screenshot_bytes = page.screenshot(full_page=False, type='png')
+                                            else:
+                                                # 要素が見えない場合
+                                                logger.error(f"❌ Element not visible: height={element_info['height']}, visible={element_info['visible']}")
+                                                logger.warning("Falling back to full viewport screenshot")
+                                                screenshot_bytes = page.screenshot(full_page=False, type='png')
+                                                    
+                                        except Exception as screenshot_error:
+                                            logger.error(f"Screenshot error: {screenshot_error}")
+                                            logger.error(traceback.format_exc())
+                                            # 最終フォールバック
+                                            logger.warning("Exception occurred, capturing full viewport as fallback")
+                                            screenshot_bytes = page.screenshot(full_page=False, type='png')
+                                            logger.info(f"Final fallback screenshot: {len(screenshot_bytes)} bytes")
+                                else:
+                                    logger.error(f"❌ No matching elements found for format '{firework_format}' after retry")
+                                    logger.info("Setting screenshot_bytes to None to trigger HTML file saving")
+                                    screenshot_bytes = None  # HTMLファイル保存に進む
+                            else:
+                                logger.warning(f"Unknown format: {firework_format}, will try HTML file saving")
+                                screenshot_bytes = None  # HTMLファイル保存に進む
+                        
+                        except Exception as fw_error:
+                            logger.error(f"Firework element screenshot failed: {fw_error}")
+                            logger.error(traceback.format_exc())
+                            # フォールバック: HTMLファイル保存に進む
+                            logger.info("Setting screenshot_bytes to None due to exception")
+                            screenshot_bytes = None
+                    else:
+                        # フォーマットが指定されていない場合、通常のスクリーンショット
+                        screenshot_bytes = page.screenshot(full_page=False, type='png')
+                    
+                    # screenshot_bytesがNoneでないことを確認してからlenを呼ぶ
+                    if screenshot_bytes is not None:
+                        logger.info(f"Screenshot captured successfully with strategy {i}: {len(screenshot_bytes)} bytes")
+                        break  # 成功したらループを抜ける
+                    else:
+                        logger.warning(f"Screenshot is None, will try HTML fallback")
+                        continue  # 次の戦略は試さず、HTMLフォールバックに進む
                     
                 except PlaywrightTimeoutError as timeout_error:
                     last_error = timeout_error
@@ -673,6 +1658,168 @@ def capture_screenshot_with_playwright(url, width=1200, height=800):
         logger.error(f"Playwright screenshot failed: {e}")
         logger.error(traceback.format_exc())
         return None
+
+def generate_why_firework(url, html_content, website_description, language='ja', firework_format='Unknown'):
+    """OpenAI APIを使用してFirework活用理由を生成（Firework要素とフォーマット情報を含む高度な分析）"""
+    try:
+        openai_api_key = os.environ.get('OPENAI_API_KEY', '')
+        
+        if not openai_api_key:
+            logger.warning("OPENAI_API_KEY not set")
+            fallback = '目的: 動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Objective: Explain product features and usage through video / Key KPI: Video completion rate'
+            return fallback
+        
+        from bs4 import BeautifulSoup
+        
+        # HTMLからFirework要素周辺のコンテキストを抽出
+        soup = BeautifulSoup(html_content, 'html.parser')
+        
+        # Firework要素を探す
+        firework_elements = soup.find_all(lambda tag: tag.name and tag.name.startswith('fw-'))
+        firework_context = ""
+        
+        if firework_elements:
+            logger.info(f"Found {len(firework_elements)} Firework elements")
+            # Firework要素の周辺テキストを抽出（親要素やsiblingから）
+            for fw_elem in firework_elements[:3]:  # 最初の3つのみ
+                # 親要素のテキストを取得
+                parent = fw_elem.parent
+                if parent:
+                    parent_text = parent.get_text(separator=' ', strip=True)
+                    if parent_text and len(parent_text) > 20:
+                        firework_context += parent_text[:200] + " "
+                
+                # Firework要素の属性情報も取得（channel, playlist情報など）
+                attrs = fw_elem.attrs
+                if 'channel' in attrs:
+                    firework_context += f"[Firework Channel: {attrs['channel']}] "
+                if 'playlist' in attrs:
+                    firework_context += f"[Playlist: {attrs['playlist']}] "
+        
+        # HTMLからテキストコンテンツを抽出（一般的なページ内容）
+        for script in soup(["script", "style"]):
+            script.decompose()
+        
+        text_content = soup.get_text()
+        lines = (line.strip() for line in text_content.splitlines())
+        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+        text = ' '.join(chunk for chunk in chunks if chunk)
+        
+        # テキストが長すぎる場合は切り詰め
+        if len(text) > 2000:
+            text = text[:2000]
+        
+        # Fireworkフォーマット情報
+        format_description = ""
+        if firework_format and firework_format != 'Unknown':
+            format_description = f"\n\nFireworkフォーマット: {firework_format}"
+        
+        # 目的とKPIのパターンリスト
+        patterns = [
+            "着回し提案で滞在時間を延長 / 主要KPI: 平均滞在時間増加率",
+            "素材動画で不安を払拭 / 主要KPI: 離脱率低減",
+            "機能実演でCVR向上 / 主要KPI: CVRリフト (非視聴者比)",
+            "商品ページの伝達力向上 / 主要KPI: SKUカバー率",
+            "ライブ動画を通じて即時購入促進 / 主要KPI: 売上増加",
+            "限定品のライブ販売で売上最大化 / 主要KPI: 購入件数・売上",
+            "ライブでスタッフのファン化と送客 / 主要KPI: 実店舗来店率",
+            "サイマル配信で認知拡大 / 主要KPI: ライブ視聴完了率",
+            "ライブ配信でブランド認知向上 / 主要KPI: 検索数増加率",
+            "ライブ配信でブランドエンゲージメント向上 / 主要KPI: ライブ中のコメント数増加率",
+            "動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率",
+            "ライブ配信で新規ユーザーとのエンゲージメントを図る / 主要KPI: 新規視聴者数・新規視聴者率",
+            "安心のアフターケアを動画で訴求 / 主要KPI: 申込み率",
+            "悩み解決動画でカート追加促進 / 主要KPI: カート追加率",
+            "ライブ配信でセット購入促進 / 主要KPI: セット購入率",
+            "サイズ感説明動画で障壁低減 / 主要KPI: CVRリフト (非視聴者比)",
+            "多様な利用シーンを動画で紹介 / 主要KPI: まとめ買い購入率",
+            "商品の操作性を動画で解説 / 主要KPI: CVRリフト (非視聴者比)",
+            "設置イメージ動画で決定促進 / 主要KPI: カート追加リフト (非視聴者比)",
+            "AIFAQで疑問即時解消 / 主要KPI: チャット満足度",
+            "動画を活用し商品ページのコンテンツをリッチ化 / 主要KPI: サイト滞在時間",
+            "AIFAQで人的負荷を軽減 / 主要KPI: エスカレーション率低減",
+            "AIFAQ分析結果を商品開発へ活用 / 主要KPI: 質問内容（定性）",
+            "ライブの双方向性でインサイト獲得 / 主要KPI: コメントの内容（定性評価）",
+            "パーソナライズ動画レコメンド強化 / 主要KPI: 平均サイト滞在時間",
+            "カテゴリ横断動画でまとめ買い促進 / 主要KPI: セット購入平均点数",
+            "動画導入でデジタル体験向上 / 主要KPI: LTV増加率"
+        ]
+        
+        patterns_text = "\n".join([f"{i+1}. {p}" for i, p in enumerate(patterns)])
+        
+        prompt = f"""以下のウェブサイトの情報とFireworkの動画配置状況を分析し、Fireworkの動画ソリューション活用について最も関連性の高い「目的とKPI」のパターンを1つ選んでください。
+
+ウェブサイトの概要:
+{website_description}
+
+Firework動画周辺のコンテキスト:
+{firework_context if firework_context else 'Firework要素周辺のコンテンツなし'}{format_description}
+
+ウェブサイトのコンテンツ（一部）:
+{text[:1000]}
+
+利用可能な目的とKPIパターン:
+{patterns_text}
+
+指示:
+1. Firework動画がどのような目的で配置されているか、ページコンテキストとフォーマット情報から推測してください
+2. 上記のパターンから最も関連性が高いものを1つ選択してください
+3. 選択したパターンをベースに、このウェブサイト固有の状況に合わせてカスタマイズした文章を作成してください
+4. 出力は必ず「{'目的: ' if language == 'ja' else 'Objective: '}」で始めてください
+5. 出力は80-120文字程度で、「{'目的: ' if language == 'ja' else 'Objective: '}目的内容 / 主要KPI: KPI名」の形式で記述してください
+6. {'日本語' if language == 'ja' else '英語'}で出力してください
+
+例:
+- アパレルブランドの場合: 「目的: 着回し提案動画で滞在時間を延長し、購入検討を促進 / 主要KPI: 平均滞在時間増加率」
+- 家電メーカーの場合: 「目的: 操作性を動画で分かりやすく解説し購入不安を解消 / 主要KPI: CVRリフト (非視聴者比)」
+
+出力（カスタマイズされた1文のみ）:"""
+
+        response = requests.post(
+            'https://api.openai.com/v1/chat/completions',
+            headers={
+                'Authorization': f'Bearer {openai_api_key}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'model': 'gpt-4o-mini',
+                'messages': [{'role': 'user', 'content': prompt}],
+                'max_tokens': 200,
+                'temperature': 0.7
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            try:
+                result = response.json()
+                why_firework = result['choices'][0]['message']['content'].strip()
+                
+                # 「目的: 」または「Objective: 」プレフィックスがない場合は追加
+                if language == 'ja':
+                    if not why_firework.startswith('目的:'):
+                        why_firework = '目的: ' + why_firework
+                else:
+                    if not why_firework.startswith('Objective:'):
+                        why_firework = 'Objective: ' + why_firework
+                
+                logger.info(f"Why firework generated: {why_firework}")
+                return why_firework
+            except (ValueError, KeyError) as json_error:
+                logger.error(f"Failed to parse Why firework response: {json_error}")
+                fallback = '目的: 動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Objective: Explain product features and usage through video / Key KPI: Video completion rate'
+                return fallback
+        else:
+            logger.error(f"Why firework API error: {response.status_code}")
+            logger.error(f"Response: {response.text[:500]}")
+            fallback = '目的: 動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Objective: Explain product features and usage through video / Key KPI: Video completion rate'
+            return fallback
+            
+    except Exception as e:
+        logger.error(f"Why firework generation error: {e}")
+        logger.error(traceback.format_exc())
+        fallback = '目的: 動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Objective: Explain product features and usage through video / Key KPI: Video completion rate'
+        return fallback
 
 def crawl_and_analyze_website(url, language='ja'):
     """WebクローラーでWebサイト情報を取得し、OpenAI APIで分析"""
@@ -735,15 +1882,10 @@ def crawl_and_analyze_website(url, language='ja'):
         )
         
         if summary_response.status_code == 200:
-            try:
-                result = summary_response.json()
-                summary = result['choices'][0]['message']['content']
-                logger.info(f"Website summary generated: {summary[:100]}...")
-                return summary
-            except (ValueError, KeyError) as json_error:
-                logger.error(f"Failed to parse OpenAI response as JSON: {json_error}")
-                logger.error(f"Response content: {summary_response.text[:500]}")
-                return fallback
+            result = summary_response.json()
+            summary = result['choices'][0]['message']['content']
+            logger.info(f"Website summary generated: {summary[:100]}...")
+            return summary
         else:
             logger.error(f"OpenAI API error: {summary_response.status_code}")
             logger.error(f"Response body: {summary_response.text[:500]}")
@@ -767,6 +1909,7 @@ def create_pptx():
         language = data.get('language', 'ja')
         
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
+        logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
@@ -794,13 +1937,55 @@ def create_pptx():
         # WebクローラーとOpenAI APIでWebsite descriptionを取得
         website_description_enhanced = crawl_and_analyze_website(url, language) if url else fallback_website
         
+        # 検出されたフォーマットを取得（dataから渡される場合、またはURLから検出）
+        detected_format = data.get('format', 'Unknown')
+        
+        # fwタグが設置されているページのHTMLを取得して、Why firework?を生成
+        fallback_why_firework = '目的: 動画で商品の魅力や使い方を分かりやすく説明 / 主要KPI: 視聴完了率' if language == 'ja' else 'Objective: Explain product features and usage through video / Key KPI: Video completion rate'
+        why_firework_text = fallback_why_firework
+        
+        if url:
+            try:
+                logger.info(f"🔍 Starting Why firework generation for URL: {url}")
+                # URLからHTMLコンテンツとフォーマットを取得
+                has_fw, html_content, format_from_url = check_fw_tag_in_url(url)
+                logger.info(f"📄 check_fw_tag_in_url result: has_fw={has_fw}, format_from_url={format_from_url}, html_length={len(html_content) if html_content else 0}")
+                
+                # フォーマットが不明な場合はURLから検出したものを使用
+                if detected_format == 'Unknown' and format_from_url != 'Unknown':
+                    detected_format = format_from_url
+                    logger.info(f"✅ Format detected from URL: {detected_format}")
+                
+                if html_content:
+                    logger.info(f"🚀 Calling generate_why_firework with format={detected_format}")
+                    # website_description、Fireworkフォーマット情報も渡して、より正確な分析を行う
+                    why_firework_text = generate_why_firework(url, html_content, website_description_enhanced, language, firework_format=detected_format)
+                    logger.info(f"✅ Why firework text generated: {why_firework_text}")
+                    
+                    # 「目的: 」プレフィックスがない場合は追加（フォールバック）
+                    if language == 'ja':
+                        if not why_firework_text.startswith('目的:') and not why_firework_text.startswith('目的：'):
+                            why_firework_text = '目的: ' + why_firework_text
+                            logger.info(f"Added '目的: ' prefix: {why_firework_text}")
+                    else:
+                        if not why_firework_text.startswith('Objective:'):
+                            why_firework_text = 'Objective: ' + why_firework_text
+                            logger.info(f"Added 'Objective: ' prefix: {why_firework_text}")
+                else:
+                    logger.warning("HTML content not available for Why firework generation")
+            except Exception as e:
+                logger.error(f"Error generating Why firework: {e}")
+                logger.error(traceback.format_exc())
+        
         # プレースホルダーのテキストを置換（Business NameとCompany detailsは削除）
         replacements = {
             '{Business Country}': country,
             '{Account: Industry}': industry,
             '{Channel Name}': channel_name,
             '{URL}': url,
-            '{Website description}': website_description_enhanced
+            '{Website description}': website_description_enhanced,
+            '{Why firework?}': why_firework_text,
+            '{Format}': detected_format  # フォーマットを追加
         }
         
         for shape in slide.shapes:
@@ -823,63 +2008,169 @@ def create_pptx():
                             for paragraph in shape.text_frame.paragraphs:
                                 for run in paragraph.runs:
                                     run.font.size = Pt(10.5)
+                        
+                        # {Why firework?}の場合、フォントサイズを12ptに設定し、disclaimerを赤字で追加
+                        if '{Why firework?}' in original_text:
+                            # disclaimerを追加
+                            disclaimer_text = ' （想定内容につき、要加工）' if language == 'ja' else ' (Estimated content, editing required)'
+                            
+                            # 「」（かっこ）を削除
+                            clean_text = why_firework_text.strip()
+                            if clean_text.startswith('「') and clean_text.endswith('」'):
+                                clean_text = clean_text[1:-1]
+                            if clean_text.startswith('"') and clean_text.endswith('"'):
+                                clean_text = clean_text[1:-1]
+                            
+                            # 「 / 主要KPI: 」を改行に変更（日本語）
+                            if ' / 主要KPI: ' in clean_text:
+                                clean_text = clean_text.replace(' / 主要KPI: ', '\n主要KPI: ')
+                            # 「 / Key KPI: 」を改行に変更（英語）
+                            if ' / Key KPI: ' in clean_text:
+                                clean_text = clean_text.replace(' / Key KPI: ', '\nKey KPI: ')
+                            
+                            # テキストフレームをクリアして再構築
+                            shape.text_frame.clear()
+                            
+                            # 本文を追加（黒字、12pt）
+                            p = shape.text_frame.paragraphs[0]
+                            run_main = p.add_run()
+                            run_main.text = clean_text
+                            run_main.font.size = Pt(12)
+                            run_main.font.color.rgb = RGBColor(0, 0, 0)  # 黒字
+                            
+                            # disclaimerを追加（赤字、12pt）
+                            run_disclaimer = p.add_run()
+                            run_disclaimer.text = disclaimer_text
+                            run_disclaimer.font.size = Pt(12)
+                            run_disclaimer.font.color.rgb = RGBColor(255, 0, 0)  # 赤字
                     else:
                         shape.text = new_text
         
         # Playwrightを使用してスクリーンショットを取得して挿入
         screenshot_inserted = False
         
+        # URLから検出されたフォーマット情報を取得（既にdataから取得済みの場合はそれを使用）
+        if detected_format == 'Unknown' and url:
+            try:
+                has_fw, html_content, format_temp = check_fw_tag_in_url(url)
+                detected_format = format_temp
+                logger.info(f"Detected format for screenshot: {detected_format}")
+            except Exception as e:
+                logger.warning(f"Could not detect format: {e}")
+        
         if url:
             try:
-                logger.info(f"Generating screenshot for URL: {url}")
-                img_data = capture_screenshot_with_playwright(url, width=1200, height=800)
+                logger.info(f"Generating screenshot for URL: {url} with format: {detected_format}")
+                img_data = capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=detected_format)
                 
                 if img_data:
-                    img = Image.open(img_data)
+                    # 画像サイズをチェック（白い画像を検出）
+                    img_data.seek(0)
+                    img_size = len(img_data.getvalue())
+                    logger.info(f"Screenshot image size: {img_size} bytes")
                     
-                    # 画像を挿入する位置を探す
-                    for shape in slide.shapes:
-                        if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                            left = shape.left
-                            top = shape.top
-                            width = shape.width
-                            height = shape.height
-                            
-                            # プレースホルダーを削除
-                            sp = shape.element
-                            sp.getparent().remove(sp)
-                            
-                            # 画像をリサイズして挿入
-                            img_data.seek(0)  # バッファを先頭に戻す
-                            slide.shapes.add_picture(img_data, left, top, width=width, height=height)
-                            screenshot_inserted = True
-                            logger.info("Screenshot inserted successfully")
-                            break
-                else:
-                    logger.warning("Screenshot capture returned None")
-                    
-            except Exception as e:
-                logger.error(f"スクリーンショット取得失敗: {e}")
-                logger.error(traceback.format_exc())
-        else:
-            logger.warning("No URL provided for screenshot")
-        
-        # スクリーンショットが挿入できなかった場合、フォールバックテキストを表示
-        if not screenshot_inserted:
-            for shape in slide.shapes:
-                if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
-                    if hasattr(shape, "text_frame"):
-                        shape.text_frame.text = fallback_screenshot
+                    # 10KB未満の画像は白い画像とみなす
+                    if img_size < 10000:
+                        logger.warning(f"⚠️ Screenshot is too small ({img_size} bytes), likely a blank image. Will use HTML file instead.")
+                        img_data = None  # HTMLファイル保存に進む
                     else:
-                        shape.text = fallback_screenshot
-                    break
+                        img = Image.open(img_data)
+                        
+                        # 画像を挿入する位置を探す
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                                left = shape.left
+                                top = shape.top
+                                width = shape.width
+                                height = shape.height
+                                
+                                # プレースホルダーを削除
+                                sp = shape.element
+                                sp.getparent().remove(sp)
+                                
+                                # 画像をリサイズして挿入
+                                slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                                screenshot_inserted = True
+                                logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes)")
+                                break
+                else:
+                    logger.warning(f"Playwright screenshot failed - no image data returned")
+            except Exception as e:
+                logger.warning(f"スクリーンショット取得失敗: {e}")
+                logger.warning(traceback.format_exc())
         
-        # 3つのロゴを検索して挿入
-        logo_urls = search_logo_images(channel_name, count=3)
-        logger.info(f"Found {len(logo_urls)} logo URLs for {channel_name}")
+        # スクリーンショットが挿入できなかった場合、HTMLファイルを保存してリンクを追加
+        if not screenshot_inserted and url:
+            # HTMLファイルを保存
+            html_filename = f"{channel_name.replace(' ', '_')}_page.html"
+            html_path = os.path.join(os.path.dirname(__file__), html_filename)
+            
+            if save_complete_html_page(url, html_path):
+                logger.info(f"HTML page saved: {html_path}")
+                
+                # テキストボックスを探してHTMLリンクを追加
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                        if hasattr(shape, "text_frame"):
+                            shape.text_frame.clear()
+                            p = shape.text_frame.paragraphs[0]
+                            
+                            # メインテキスト
+                            run1 = p.add_run()
+                            run1.text = "スクリーンショット取得失敗\n\n" if language == 'ja' else "Screenshot capture failed\n\n"
+                            run1.font.size = Pt(12)
+                            run1.font.color.rgb = RGBColor(255, 0, 0)
+                            
+                            # HTMLファイル説明
+                            run2 = p.add_run()
+                            run2.text = f"📄 代わりにHTMLファイルを保存しました:\n{html_filename}\n\n" if language == 'ja' else f"📄 HTML file saved instead:\n{html_filename}\n\n"
+                            run2.font.size = Pt(10)
+                            run2.font.color.rgb = RGBColor(0, 0, 0)
+                            
+                            # 使用方法
+                            run3 = p.add_run()
+                            run3.text = "使用方法: PPTXファイルと同じフォルダにHTMLファイルがあります。\nブラウザで開いてスクロールしてFireworkフォーマットを確認できます。" if language == 'ja' else "Usage: HTML file is in the same folder as PPTX.\nOpen in browser and scroll to view Firework format."
+                            run3.font.size = Pt(9)
+                            run3.font.color.rgb = RGBColor(100, 100, 100)
+                        else:
+                            shape.text = f"Screenshot failed. HTML saved: {html_filename}"
+                        break
+            else:
+                # HTMLファイル保存も失敗した場合
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
+                        if hasattr(shape, "text_frame"):
+                            shape.text_frame.text = fallback_screenshot
+                        else:
+                            shape.text = fallback_screenshot
+                        break
+        
+        # ロゴを検索して挿入（Template 3では3つ、改善された検索クエリを使用）
+        logo_count = 3  # Template.pptxは3つのロゴプレースホルダー
+        
+        # Logo 1 & 2: 通常の検索クエリ
+        logo_urls_12 = search_logo_images(channel_name, country=country, industry=industry, count=2)
+        logger.info(f"Found {len(logo_urls_12)} logo URLs (1&2) for {channel_name} (country={country}, industry={industry})")
+        
+        # Logo 3: 異なるデザインを取得するため別のクエリで検索
+        # "{Channel Name}+{Industry}+icon" または "alternative logo"で検索
+        logo_urls_3 = search_logo_images(channel_name, country='', industry=industry + ' icon', count=3)
+        logger.info(f"Found {len(logo_urls_3)} alternative logo URLs (3) for {channel_name}")
+        
+        # すべてのロゴURLを結合（Logo 3は異なる検索結果から）
+        logo_urls = logo_urls_12[:2]  # Logo 1 & 2
+        if logo_urls_3:
+            # Logo 3: logo_urls_12と重複しないデザインを選択
+            for url in logo_urls_3:
+                if url not in logo_urls:
+                    logo_urls.append(url)
+                    break
+            # まだ3つ目がない場合、logo_urls_3の最後を追加
+            if len(logo_urls) < 3 and len(logo_urls_3) > 0:
+                logo_urls.append(logo_urls_3[-1])
         
         # 各ロゴプレースホルダーを探して挿入
-        for logo_index in range(1, 4):  # 1, 2, 3
+        for logo_index in range(1, logo_count + 1):  # 1, 2, 3
             placeholder = f'{{Channel logo {logo_index}}}'
             logo_inserted = False
             
@@ -948,30 +2239,98 @@ def create_pptx():
         
         # メモリ上にPPTXを保存
         pptx_io = io.BytesIO()
-        prs.save(pptx_io)
-        pptx_io.seek(0)
+        try:
+            prs.save(pptx_io)
+            pptx_io.seek(0)
+            
+            # PPTXファイルサイズを検証
+            pptx_size = len(pptx_io.getvalue())
+            logger.info(f"PPTX生成完了: {channel_name}, サイズ: {pptx_size} bytes")
+            
+            # 最小サイズチェック（10KB未満は異常）
+            if pptx_size < 10000:
+                logger.error(f"❌ PPTX file too small ({pptx_size} bytes), likely corrupted!")
+                raise Exception(f"Generated PPTX file is too small: {pptx_size} bytes")
+            
+            # 先頭に戻す
+            pptx_io.seek(0)
+            
+        except Exception as pptx_save_error:
+            logger.error(f"PPTX保存エラー: {pptx_save_error}")
+            logger.error(traceback.format_exc())
+            raise
         
-        logger.info(f"PPTX生成完了: {channel_name}")
+        # HTMLファイルが存在する場合はZIPファイルとして返す
+        html_filename = f"{channel_name.replace(' ', '_')}_page.html"
+        html_path = os.path.join(os.path.dirname(__file__), html_filename)
         
-        return send_file(
-            pptx_io,
-            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            as_attachment=True,
-            download_name=f'{channel_name}_Casestudy.pptx'
-        )
+        if os.path.exists(html_path):
+            import zipfile
+            
+            # ZIPファイルを作成
+            zip_io = io.BytesIO()
+            # ファイル名をサニタイズ（スペースとカンマを削除）
+            safe_filename = channel_name.replace(' ', '_').replace(',', '').replace('.', '')
+            safe_html_filename = html_filename.replace(' ', '_').replace(',', '').replace('.', '')
+            
+            with zipfile.ZipFile(zip_io, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                # PPTXファイルを追加（バイナリデータをそのまま書き込む）
+                pptx_data = pptx_io.getvalue()
+                logger.info(f"Adding PPTX to ZIP: {len(pptx_data)} bytes")
+                zipf.writestr(f'{safe_filename}_Casestudy.pptx', pptx_data)
+                
+                # HTMLファイルを追加
+                with open(html_path, 'r', encoding='utf-8') as f:
+                    zipf.writestr(safe_html_filename, f.read())
+                
+                # 説明ファイルを追加
+                readme_text = """HTMLファイルの使用方法 / How to use HTML file
+==============================================
+
+1. このZIPファイルを解凍してください / Extract this ZIP file
+2. PPTXファイルとHTMLファイルが含まれています / Contains PPTX and HTML files
+3. HTMLファイルをブラウザで開いてください / Open HTML file in browser
+4. スクロールしてFireworkフォーマットを確認できます / Scroll to view Firework format
+
+注意: スクリーンショット自動取得に失敗したため、HTMLファイルを提供しています。
+Note: HTML file provided because automatic screenshot capture failed.
+"""
+                zipf.writestr('README.txt', readme_text)
+            
+            # HTMLファイルを削除（クリーンアップ）
+            try:
+                os.remove(html_path)
+            except:
+                pass
+            
+            zip_io.seek(0)
+            logger.info(f"ZIP file created with HTML: {channel_name}")
+            
+            # ファイル名をサニタイズ（スペースとカンマを削除）
+            safe_filename = channel_name.replace(' ', '_').replace(',', '').replace('.', '')
+            
+            return send_file(
+                zip_io,
+                mimetype='application/zip',
+                as_attachment=True,
+                download_name=f'{safe_filename}_Casestudy.zip'
+            )
+        else:
+            # HTMLファイルがない場合はPPTXのみ返す
+            # ファイル名をサニタイズ（スペースとカンマを削除）
+            safe_filename = channel_name.replace(' ', '_').replace(',', '').replace('.', '')
+            
+            return send_file(
+                pptx_io,
+                mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                as_attachment=True,
+                download_name=f'{safe_filename}_Casestudy.pptx'
+            )
     
     except Exception as e:
-        error_message = str(e)
-        logger.error(f"PPTX生成エラー: {error_message}")
+        logger.error(f"PPTX生成エラー: {e}")
         logger.error(traceback.format_exc())
-        
-        # より詳細なエラーメッセージを構築
-        if "Unexpected token" in error_message or "not valid JSON" in error_message:
-            error_message = "API通信エラー: 外部APIからの応答が正しくありません。APIキーとネットワーク接続を確認してください。"
-        elif "Template.pptx" in error_message:
-            error_message = "テンプレートファイルが見つかりません。Template.pptxファイルを配置してください。"
-        
-        return jsonify({'error': error_message}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/export-excel', methods=['POST'])
 def export_excel():
