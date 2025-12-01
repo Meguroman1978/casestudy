@@ -702,9 +702,22 @@ def process_data():
     except Exception as e:
         logger.error("="*60)
         logger.error(f"予期しないエラーが発生: {e}")
+        logger.error(f"エラータイプ: {type(e).__name__}")
         logger.error(traceback.format_exc())
         logger.error("="*60)
-        return jsonify({'error': f'エラーが発生しました: {str(e)}'}), 500
+        
+        # より詳細なエラーメッセージ
+        error_detail = str(e)
+        if "No such file or directory" in error_detail:
+            error_msg = 'ファイルの保存に失敗しました。サーバーの設定を確認してください。 / File save failed. Please check server configuration.'
+        elif "Google Sheet" in error_detail or "gspread" in error_detail:
+            error_msg = 'Google Sheetsへのアクセスに失敗しました。GOOGLE_SHEET_IDを確認してください。 / Failed to access Google Sheets. Please check GOOGLE_SHEET_ID.'
+        elif "pandas" in error_detail or "read_excel" in error_detail:
+            error_msg = 'Excelファイルの読み込みに失敗しました。ファイル形式を確認してください。 / Failed to read Excel file. Please check file format.'
+        else:
+            error_msg = f'エラーが発生しました / Error occurred: {error_detail}'
+        
+        return jsonify({'error': error_msg, 'detail': error_detail}), 500
 
 def extract_website_info(url):
     """ウェブサイトからメタ情報を抽出"""

@@ -1080,6 +1080,18 @@
                     signal: abortController ? abortController.signal : undefined  // 🆕 キャンセル対応
                 });
                 
+                // レスポンスのContent-Typeを確認
+                const contentType = response.headers.get('content-type');
+                console.log('Response status:', response.status);
+                console.log('Response content-type:', contentType);
+                
+                // HTMLが返ってきた場合（サーバーエラー）
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Server returned non-JSON response:', text.substring(0, 500));
+                    throw new Error('サーバーエラーが発生しました。ログを確認してください / Server error occurred. Please check logs.');
+                }
+                
                 const data = await response.json();
                 console.log('Received data:', data);
                 console.log('has_next from server:', data.has_next);
