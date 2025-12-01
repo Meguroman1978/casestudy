@@ -3,7 +3,7 @@ services:
     name: video-case-study-analyzer
     env: python
     buildCommand: pip install -r requirements.txt && playwright install --with-deps chromium
-    startCommand: python download_template_from_slides.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 4 --timeout 120
+    startCommand: python download_template_from_slides.py && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300 --worker-class sync --max-requests 1000 --max-requests-jitter 50
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
