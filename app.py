@@ -573,15 +573,50 @@ def process_data():
         
         video_file.save(video_path)
         live_file.save(live_path)
-        logger.info(f"ファイル保存完了: {video_filename}, {live_filename}")
         
-        # データの読み込み
+        # ファイルサイズを確認
+        video_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
+        live_size = os.path.getsize(live_path) / (1024 * 1024)  # MB
+        logger.info(f"ファイル保存完了: {video_filename} ({video_size:.2f}MB), {live_filename} ({live_size:.2f}MB)")
+        
+        # 大きすぎるファイルを警告
+        if video_size > 10 or live_size > 10:
+            logger.warning(f"⚠️ 大きなファイルが検出されました: video={video_size:.2f}MB, live={live_size:.2f}MB")
+            logger.warning(f"⚠️ 処理に時間がかかる可能性があります（最大5分）")
+        
+        # データの読み込み（メモリ効率化）
         logger.info("[STEP 0] Excelファイル読み込み中...")
-        video_df = pd.read_excel(video_path)
-        logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
         
-        live_df = pd.read_excel(live_path)
-        logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
+        # 必要なカラムのみ読み込んでメモリを節約
+        required_columns = ['Page Url', 'Business Id', 'Business Name', 'Business Country', 
+                          'Channel Id', 'Channel Name', 'Video Views']
+        
+        try:
+            # read_excel with engine='openpyxl' and read_only=True for memory efficiency
+            video_df = pd.read_excel(video_path, engine='openpyxl')
+            logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
+            
+            # 不要なカラムを削除してメモリを解放
+            video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
+            if video_columns_to_keep:
+                video_df = video_df[video_columns_to_keep]
+                logger.info(f"必要なカラムのみ保持: {video_columns_to_keep}")
+        except Exception as e:
+            logger.error(f"ショート動画ファイル読み込みエラー: {e}")
+            raise
+        
+        try:
+            live_df = pd.read_excel(live_path, engine='openpyxl')
+            logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
+            
+            # 不要なカラムを削除してメモリを解放
+            live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
+            if live_columns_to_keep:
+                live_df = live_df[live_columns_to_keep]
+                logger.info(f"必要なカラムのみ保持: {live_columns_to_keep}")
+        except Exception as e:
+            logger.error(f"ライブ配信ファイル読み込みエラー: {e}")
+            raise
         
         sheet_df = get_google_sheet_data()
         
@@ -706,14 +741,27 @@ def process_data():
         logger.error(traceback.format_exc())
         logger.error("="*60)
         
+        # エラー時も一時ファイルを削除
+        try:
+            if 'video_path' in locals() and os.path.exists(video_path):
+                os.remove(video_path)
+                logger.info("エラー時: video_path削除完了")
+            if 'live_path' in locals() and os.path.exists(live_path):
+                os.remove(live_path)
+                logger.info("エラー時: live_path削除完了")
+        except Exception as cleanup_error:
+            logger.warning(f"一時ファイル削除エラー: {cleanup_error}")
+        
         # より詳細なエラーメッセージ
         error_detail = str(e)
         if "No such file or directory" in error_detail:
             error_msg = 'ファイルの保存に失敗しました。サーバーの設定を確認してください。 / File save failed. Please check server configuration.'
         elif "Google Sheet" in error_detail or "gspread" in error_detail:
             error_msg = 'Google Sheetsへのアクセスに失敗しました。GOOGLE_SHEET_IDを確認してください。 / Failed to access Google Sheets. Please check GOOGLE_SHEET_ID.'
-        elif "pandas" in error_detail or "read_excel" in error_detail:
-            error_msg = 'Excelファイルの読み込みに失敗しました。ファイル形式を確認してください。 / Failed to read Excel file. Please check file format.'
+        elif "pandas" in error_detail or "read_excel" in error_detail or "openpyxl" in error_detail:
+            error_msg = 'Excelファイルの読み込みに失敗しました。ファイルが大きすぎるか、形式が正しくない可能性があります。 / Failed to read Excel file. File may be too large or format is incorrect.'
+        elif "timeout" in error_detail.lower() or "SIGKILL" in error_detail:
+            error_msg = 'ファイルの処理がタイムアウトしました。ファイルサイズを小さくしてください（推奨: 5MB以下）。 / File processing timed out. Please reduce file size (recommended: under 5MB).'
         else:
             error_msg = f'エラーが発生しました / Error occurred: {error_detail}'
         
