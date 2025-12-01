@@ -92,6 +92,9 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls'}
 
+# uploadsディレクトリを確実に作成（Gunicorn起動時にも実行される）
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
 # Google Sheets設定
 GOOGLE_SHEET_ID = os.environ.get('GOOGLE_SHEET_ID', '')
 if not GOOGLE_SHEET_ID:
@@ -561,6 +564,10 @@ def process_data():
         # ファイルを一時保存
         video_filename = secure_filename(video_file.filename)
         live_filename = secure_filename(live_file.filename)
+        
+        # uploadsディレクトリの存在を確認（念のため）
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
         video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
         live_path = os.path.join(app.config['UPLOAD_FOLDER'], live_filename)
         
