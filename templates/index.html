@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title id="pageTitle">活用事例検索ツール</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -118,7 +121,7 @@
             <!-- 警告メッセージ -->
             <div class="mb-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
                 <p class="text-red-700 text-sm font-medium" data-lang-key="data_limit_warning">
-                    最大、直近7日間分のデータをSigmaから抽出し、以下にアップロードしてください
+                    最大、直近3日間分のグローバルデータをSigmaから抽出し、以下にアップロードしてください
                 </p>
             </div>
             
@@ -176,6 +179,28 @@
                             <option value="none" data-lang-key="not_selected">選択しない</option>
                         </select>
                     </div>
+                    
+                    <!-- Fireworkフォーマット選択 -->
+                    <div>
+                        <label for="formatFilter" class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-lang-key="format">フォーマット</span>
+                        </label>
+                        <select id="formatFilter" name="format_filter"
+                                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
+                            <option value="選択しない" data-lang-key="not_selected">選択しない</option>
+                            <option value="Horizontal Carousel">Horizontal Carousel</option>
+                            <option value="Dynamic Carousel">Dynamic Carousel</option>
+                            <option value="Carousel">Carousel</option>
+                            <option value="Grid">Grid</option>
+                            <option value="Story Block">Story Block</option>
+                            <option value="Circle Stories">Circle Stories</option>
+                            <option value="Vertical Stories">Vertical Stories</option>
+                            <option value="Floating Player">Floating Player</option>
+                            <option value="Horizontal Player">Horizontal Player</option>
+                            <option value="Hero Unit">Hero Unit</option>
+                            <option value="Player Deck">Player Deck</option>
+                        </select>
+                    </div>
                 </div>
                 
                 <!-- カテゴリー検索ボックス -->
@@ -227,8 +252,14 @@
                     </div>
                 </div>
 
-                <!-- 送信ボタン -->
-                <div class="flex justify-end">
+                <!-- 送信ボタン + キャンセルボタン -->
+                <div class="flex justify-end gap-3">
+                    <!-- キャンセルボタン（検索中のみ表示） -->
+                    <button type="button" id="cancelBtn"
+                            class="hidden px-6 py-2 bg-red-500 text-white font-semibold rounded-md shadow hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                        <span data-lang-key="cancel_button">キャンセル</span>
+                    </button>
+                    <!-- 検索ボタン -->
                     <button type="submit" id="submitBtn"
                             class="px-6 py-2 bg-orange-custom text-white font-semibold rounded-md shadow hover:bg-orange-custom focus:outline-none focus:ring-2 focus:ring-orange-custom focus:ring-offset-2">
                         <span data-lang-key="search_button">検索</span>
@@ -306,6 +337,7 @@
         let categoryHierarchy = null;
         let categoryMapping = {};  // 統合後の小分類 → 元の小分類のリスト
         let currentLanguage = 'ja';  // デフォルトは日本語
+        let abortController = null;  // 🆕 検索キャンセル用のAbortController
         
         // 言語切り替え用の翻訳テキスト
         const translations = {
@@ -318,6 +350,7 @@
             short_video: { ja: 'ショート動画事例', en: 'Short Video Cases' },
             live_stream: { ja: 'ライブ配信事例', en: 'Live Stream Cases' },
             country: { ja: '国', en: 'Country' },
+            format: { ja: 'フォーマット', en: 'Format' },
             not_selected: { ja: '選択しない', en: 'Not Selected' },
             other_country: { ja: 'その他', en: 'Other' },
             search_category: { ja: 'カテゴリー検索', en: 'Search Category' },
@@ -328,6 +361,7 @@
             select_major: { ja: '大分類を選択してください', en: 'Select Major Category' },
             select_medium: { ja: '中分類を選択してください', en: 'Select Medium Category' },
             search_button: { ja: '検索', en: 'Search' },
+            cancel_button: { ja: 'キャンセル', en: 'Cancel' },
             processing: { ja: 'データを処理中...', en: 'Processing data...' },
             error_title: { ja: 'エラー', en: 'Error' },
             results_title: { ja: '結果', en: 'Results' },
@@ -358,8 +392,8 @@
             select_file: { ja: 'ファイルを選択', en: 'Select data file' },
             no_file_selected: { ja: '選択されていません', en: 'No data file is selected' },
             data_limit_warning: { 
-                ja: '最大、直近7日間分のデータをSigmaから抽出し、以下にアップロードしてください', 
-                en: 'Please extract and upload data from Sigma for the last 7 days maximum' 
+                ja: '最大、直近3日間分のグローバルデータをSigmaから抽出し、以下にアップロードしてください', 
+                en: 'Please extract and upload global data from Sigma for the last 3 days maximum' 
             },
             download_format: { ja: 'ダウンロード形式', en: 'Download Format' },
             download_csv: { ja: 'CSVダウンロード', en: 'Download CSV' },
@@ -406,6 +440,24 @@
             // 結果が表示されている場合は再描画
             if (currentData) {
                 displayResults(currentData, false);
+            }
+            
+            // 🆕 国のデフォルト値を言語に応じて設定
+            const countrySelect = document.getElementById('country');
+            if (countrySelect) {
+                if (lang === 'ja') {
+                    // 日本語の場合、Japanを選択
+                    const japanOption = Array.from(countrySelect.options).find(opt => opt.value === 'Japan');
+                    if (japanOption) {
+                        countrySelect.value = 'Japan';
+                    }
+                } else if (lang === 'en') {
+                    // 英語の場合、Americasを選択
+                    const americasOption = Array.from(countrySelect.options).find(opt => opt.value === 'Americas');
+                    if (americasOption) {
+                        countrySelect.value = 'Americas';
+                    }
+                }
             }
         }
         
@@ -799,6 +851,14 @@
             document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // 既存の検索をキャンセル
+            if (abortController) {
+                abortController.abort();
+            }
+            
+            // 新しいAbortControllerを作成
+            abortController = new AbortController();
+            
             // ページをリセット
             currentPage = 1;
             currentFormData = new FormData(e.target);
@@ -808,7 +868,35 @@
             hideResults();
             showLoading();
             
-            await loadData(currentPage);
+            // 🆕 検索ボタンを非表示、キャンセルボタンを表示
+            document.getElementById('submitBtn').classList.add('hidden');
+            document.getElementById('cancelBtn').classList.remove('hidden');
+            
+            try {
+                await loadData(currentPage);
+            } finally {
+                // 🆕 検索完了後、ボタンを元に戻す
+                document.getElementById('submitBtn').classList.remove('hidden');
+                document.getElementById('cancelBtn').classList.add('hidden');
+            }
+            });
+            
+            // 🆕 キャンセルボタンのイベントリスナー
+            document.getElementById('cancelBtn').addEventListener('click', () => {
+                if (abortController) {
+                    abortController.abort();
+                    abortController = null;
+                }
+                
+                // ローディングを非表示
+                hideLoading();
+                
+                // ボタンを元に戻す
+                document.getElementById('submitBtn').classList.remove('hidden');
+                document.getElementById('cancelBtn').classList.add('hidden');
+                
+                // ページをリフレッシュ
+                window.location.reload();
             });
             
             // 「次の10件を見る」ボタンのイベントリスナー
@@ -832,6 +920,7 @@
                             'チャンネル名': 'Channel Name',
                             '業種': 'Industry',
                             '国': 'Country',
+                            'フォーマット': 'Format',
                             'URL': 'URL'
                         };
                         return mapping[col] || col;
@@ -926,12 +1015,56 @@
                     }
                 }
                 
-                // 小分類が選択されている場合、元の業界名のリストを追加
-                const selectedSmall = document.getElementById('smallCategory').value;
-                if (selectedSmall && categoryMapping[selectedSmall]) {
-                    const originalIndustries = categoryMapping[selectedSmall];
-                    formData.set('industry_filter', originalIndustries.join(','));
+                // 階層的フィルタリング: 大分類・中分類・小分類の選択状態に基づいてフィルタリング
+                let selectedMajor = '';
+                let selectedMiddle = '';
+                let selectedSmall = '';
+                
+                try {
+                    const majorCategoryEl = document.getElementById('majorCategory');
+                    const middleCategoryEl = document.getElementById('middleCategory');
+                    const smallCategoryEl = document.getElementById('smallCategory');
+                    
+                    selectedMajor = majorCategoryEl ? (majorCategoryEl.value || '') : '';
+                    selectedMiddle = middleCategoryEl ? (middleCategoryEl.value || '') : '';
+                    selectedSmall = smallCategoryEl ? (smallCategoryEl.value || '') : '';
+                    
+                    console.log('Category values:', { selectedMajor, selectedMiddle, selectedSmall });
+                } catch (err) {
+                    console.error('Error getting category values:', err);
+                }
+                
+                let industriesToFilter = [];
+                
+                if (selectedSmall && categoryMapping && categoryMapping[selectedSmall]) {
+                    // 小分類が選択されている場合: 該当する小分類のみ
+                    industriesToFilter = categoryMapping[selectedSmall];
+                } else if (selectedMiddle && categoryHierarchy && categoryHierarchy[selectedMajor] && categoryHierarchy[selectedMajor][selectedMiddle]) {
+                    // 中分類が選択されている場合: 該当中分類傘下のすべての小分類
+                    const middleCategory = categoryHierarchy[selectedMajor][selectedMiddle];
+                    for (const smallKey in middleCategory) {
+                        industriesToFilter = industriesToFilter.concat(middleCategory[smallKey]);
+                    }
+                } else if (selectedMajor && categoryHierarchy && categoryHierarchy[selectedMajor]) {
+                    // 大分類のみ選択されている場合: 該当大分類傘下のすべての中小分類
+                    const majorCategory = categoryHierarchy[selectedMajor];
+                    for (const middleKey in majorCategory) {
+                        const middleCategory = majorCategory[middleKey];
+                        for (const smallKey in middleCategory) {
+                            industriesToFilter = industriesToFilter.concat(middleCategory[smallKey]);
+                        }
+                    }
+                }
+                
+                // 重複を除去
+                if (industriesToFilter.length > 0) {
+                    industriesToFilter = [...new Set(industriesToFilter)];
+                }
+                
+                if (industriesToFilter.length > 0) {
+                    formData.set('industry_filter', industriesToFilter.join(','));
                 } else {
+                    // いずれも選択されていない場合: すべての業種を対象
                     formData.set('industry_filter', 'none');
                 }
                 
@@ -943,8 +1076,21 @@
                 
                 const response = await fetch('/api/process', {
                     method: 'POST',
-                    body: formData
+                    body: formData,
+                    signal: abortController ? abortController.signal : undefined  // 🆕 キャンセル対応
                 });
+                
+                // レスポンスのContent-Typeを確認
+                const contentType = response.headers.get('content-type');
+                console.log('Response status:', response.status);
+                console.log('Response content-type:', contentType);
+                
+                // HTMLが返ってきた場合（サーバーエラー）
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    console.error('Server returned non-JSON response:', text.substring(0, 500));
+                    throw new Error('サーバーエラーが発生しました。ログを確認してください / Server error occurred. Please check logs.');
+                }
                 
                 const data = await response.json();
                 console.log('Received data:', data);
@@ -997,6 +1143,7 @@
                 'チャンネル名': currentLanguage === 'ja' ? 'チャンネル名' : 'Channel Name',
                 '業種': currentLanguage === 'ja' ? '業種' : 'Industry',
                 '国': currentLanguage === 'ja' ? '国' : 'Country',
+                'フォーマット': currentLanguage === 'ja' ? 'フォーマット' : 'Format',
                 'URL': 'URL'
             };
             
@@ -1213,6 +1360,7 @@
                         industry: rowData['業種'],
                         country: rowData['国'],
                         url: rowData['URL'],
+                        format: rowData['フォーマット'] || rowData['Format'] || 'Unknown',  // フォーマットを追加
                         language: currentLanguage
                     })
                 });
@@ -1222,7 +1370,26 @@
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `${rowData['チャンネル名'] || 'Channel'}_Casestudy.pptx`;
+                    
+                    // Content-Dispositionヘッダーからファイル名を取得
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = `${rowData['チャンネル名'] || 'Channel'}_Casestudy.pptx`;
+                    
+                    if (contentDisposition) {
+                        // filename*=UTF-8''... 形式をサポート
+                        const filenameMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+                        if (filenameMatch) {
+                            filename = decodeURIComponent(filenameMatch[1]);
+                        } else {
+                            // filename="..." 形式
+                            const filenameMatch2 = contentDisposition.match(/filename="?([^";\n]+)"?/);
+                            if (filenameMatch2) {
+                                filename = filenameMatch2[1];
+                            }
+                        }
+                    }
+                    
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
