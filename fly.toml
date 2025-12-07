@@ -1,20 +1,12 @@
-# fly.toml app configuration file generated for casestudy on 2025-12-07T14:58:01Z
+# fly.toml app configuration file generated for casestudy on 2025-12-07T17:04:54Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
-# Required secrets (set with: flyctl secrets set KEY=VALUE):
-#   - OPENAI_API_KEY: OpenAI API key for PPTX generation
-#   - GOOGLE_SHEET_ID: Google Sheet ID (e.g., 1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk)
-#   - GOOGLE_SLIDES_ID: Google Slides template ID (e.g., 1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess)
 
 app = 'casestudy'
 primary_region = 'nrt'
 
 [build]
-
-[env]
-  PORT = "8080"
-  PYTHONUNBUFFERED = "1"
 
 [http_service]
   internal_port = 8080
