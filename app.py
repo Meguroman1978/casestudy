@@ -2168,13 +2168,19 @@ def crawl_and_analyze_website(url, language='ja'):
 @app.route('/api/create-pptx', methods=['POST'])
 def create_pptx():
     """PPTXスライドを生成"""
+    # 強制的にログ出力（デバッグ用）
+    print("=" * 80)
+    print("🚀 CREATE_PPTX FUNCTION CALLED - STARTING EXECUTION")
+    print("=" * 80)
     try:
         data = request.json
+        print(f"📦 Received data: {data}")
         channel_name = data.get('channel_name', '')
         industry = data.get('industry', '')
         country = data.get('country', '')
         url = data.get('url', '')
         language = data.get('language', 'ja')
+        print(f"📝 Parsed: channel={channel_name}, industry={industry}, country={country}, url={url}, lang={language}")
         
         # 新しい指標を取得
         view_through_uu_rate_raw = data.get('view_through_uu_rate', 'N/A')
@@ -2197,6 +2203,8 @@ def create_pptx():
         view_through_uu_rate = format_as_percentage(view_through_uu_rate_raw)
         cta_click_uu_rate = format_as_percentage(cta_click_uu_rate_raw)
         completion_50_uu_rate = format_as_percentage(completion_50_uu_rate_raw)
+        
+        print(f"✅ Percentage formatting complete: view_through={view_through_uu_rate}, cta_click={cta_click_uu_rate}, completion_50={completion_50_uu_rate}")
         
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
