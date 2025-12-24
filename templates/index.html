@@ -965,7 +965,12 @@
                             '業種': 'Industry',
                             '国': 'Country',
                             'フォーマット': 'Format',
-                            'URL': 'URL'
+                            'URL': 'URL',
+                            'VIDEO_VIEWS': 'Video Views',
+                            'THUMBNAIL_IMPRESSIONS': 'Thumbnail Impressions',
+                            'VIEWTHROUGH_RATE': 'View-Through Rate',
+                            'CLICKTHROUGH_RATE': 'Click-Through Rate',
+                            'A2C_RATE': 'Add-to-Cart Rate'
                         };
                         return mapping[col] || col;
                     }
@@ -1191,9 +1196,19 @@
                 data: [...currentData.data]
             };
             
+            // デバッグ: ソート対象のメトリックとデータの最初の行を確認
+            console.log('Sorting by:', metric, direction);
+            console.log('Available columns:', currentData.columns);
+            console.log('First row data:', sortedData.data[0]);
+            
             sortedData.data.sort((a, b) => {
                 let aValue = parseFloat(a[metric]) || 0;
                 let bValue = parseFloat(b[metric]) || 0;
+                
+                // デバッグ: ソート値を確認
+                if (sortedData.data.indexOf(a) < 3) {
+                    console.log(`Row ${sortedData.data.indexOf(a)}: ${metric} = ${a[metric]} (parsed: ${aValue})`);
+                }
                 
                 if (direction === 'desc') {
                     return bValue - aValue; // 降順（高→低）
@@ -1201,6 +1216,11 @@
                     return aValue - bValue; // 昇順（低→高）
                 }
             });
+            
+            console.log('Sorted data (first 3 rows):', sortedData.data.slice(0, 3).map(row => ({ 
+                url: row.URL, 
+                metric: row[metric] 
+            })));
             
             displayResults(sortedData);
         }
@@ -1214,13 +1234,18 @@
             const loadMoreBtn = document.getElementById('loadMoreBtn');
             const groupByDomain = document.getElementById('groupByDomain').checked;
             
-            // 列名の日英対応マッピング（視聴回数は除外、会社名とビジネス名は削除済み）
+            // 列名の日英対応マッピング（会社名とビジネス名は削除済み）
             const columnMapping = {
                 'チャンネル名': currentLanguage === 'ja' ? 'チャンネル名' : 'Channel Name',
                 '業種': currentLanguage === 'ja' ? '業種' : 'Industry',
                 '国': currentLanguage === 'ja' ? '国' : 'Country',
                 'フォーマット': currentLanguage === 'ja' ? 'フォーマット' : 'Format',
-                'URL': 'URL'
+                'URL': 'URL',
+                'VIDEO_VIEWS': currentLanguage === 'ja' ? '再生回数' : 'Video Views',
+                'THUMBNAIL_IMPRESSIONS': currentLanguage === 'ja' ? 'サムネイル表示回数' : 'Thumbnail Impressions',
+                'VIEWTHROUGH_RATE': currentLanguage === 'ja' ? 'ビュースルー率' : 'View-Through Rate',
+                'CLICKTHROUGH_RATE': currentLanguage === 'ja' ? 'クリック率' : 'Click-Through Rate',
+                'A2C_RATE': currentLanguage === 'ja' ? 'カート追加率' : 'Add-to-Cart Rate'
             };
             
             // テーブルヘッダーを作成
