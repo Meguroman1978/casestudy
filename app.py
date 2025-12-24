@@ -673,10 +673,35 @@ def process_data():
         
         # 必要なカラムのみ読み込んでメモリを節約（新しい指標を追加）
         required_columns = ['Page Url', 'Business Id', 'Business Name', 'Business Country', 
-                          'Channel Id', 'Channel Name', 'Video Views']
+                          'Channel Id', 'Channel Name']
         
-        # オプションの指標カラム（存在する場合のみ読み込む）
-        optional_metrics = ['Thumbnail Impressions', 'View-Through Rate', 'Click-Through Rate', 'Add-to-Cart Rate']
+        # Video Viewsカラムの名前を候補に追加（新旧両対応）
+        video_views_candidates = ['Video Views Uu 3 S', 'VIDEO VIEWS 3S UU', 'Video Views']
+        
+        # オプションの指標カラム（存在する場合のみ読み込む）- 実際のSigmaカラム名を追加
+        optional_metrics = [
+            'View Uu Rate',  # Sigmaの実際のカラム名
+            'View-Through Rate',
+            'VIEW UU RATE',
+            'Click Uu Rate',  # Sigmaの実際のカラム名
+            'Click-Through Rate',
+            'CLICK UU RATE',
+            'A 2 C Uu Rate',  # Sigmaの実際のカラム名
+            'Add-to-Cart Rate',
+            'A2C UU RATE',
+            '25 View Completion Uu Rate',  # Sigmaの実際のカラム名
+            'Video Completion Rate (25%)',
+            '25P VIEW COMPLETION UU RATE',
+            '50 View Completion Uu Rate',  # Sigmaの実際のカラム名
+            'Video Completion Rate (50%)',
+            '50P VIEW COMPLETION UU RATE',
+            '75 View Completion Uu Rate',  # Sigmaの実際のカラム名
+            'Video Completion Rate (75%)',
+            '75P VIEW COMPLETION UU RATE',
+            '100 View Completion Uu Rate',  # Sigmaの実際のカラム名
+            'Video Completion Rate (100%)',
+            '100P VIEW_COMPLETION UU RATE'
+        ]
         
         try:
             # read_excel with engine='openpyxl' and read_only=True for memory efficiency
@@ -685,6 +710,14 @@ def process_data():
             
             # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
             video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
+            
+            # Video Viewsカラムを検出して追加
+            for vv_col in video_views_candidates:
+                if vv_col in video_df.columns:
+                    video_columns_to_keep.append(vv_col)
+                    logger.info(f"Video Viewsカラムを検出: {vv_col}")
+                    break
+            
             # オプションの指標カラムを追加
             for metric in optional_metrics:
                 if metric in video_df.columns:
@@ -704,6 +737,14 @@ def process_data():
             
             # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
             live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
+            
+            # Video Viewsカラムを検出して追加
+            for vv_col in video_views_candidates:
+                if vv_col in live_df.columns:
+                    live_columns_to_keep.append(vv_col)
+                    logger.info(f"Video Viewsカラムを検出（ライブ）: {vv_col}")
+                    break
+            
             # オプションの指標カラムを追加
             for metric in optional_metrics:
                 if metric in live_df.columns:
