@@ -244,7 +244,9 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         # 必要な列を構築（会社名とビジネス名は削除）
         # Video Viewsカラムの名前を特定（新旧両対応）
         video_views_col = None
-        if 'VIDEO VIEWS 3S UU' in merged_df.columns:
+        if 'Video Views Uu 3 S' in merged_df.columns:
+            video_views_col = 'Video Views Uu 3 S'
+        elif 'VIDEO VIEWS 3S UU' in merged_df.columns:
             video_views_col = 'VIDEO VIEWS 3S UU'
         elif 'Video Views' in merged_df.columns:
             video_views_col = 'Video Views'
@@ -259,20 +261,27 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
             columns_to_extract.append(video_views_col)
         
         # 新しい指標カラムを追加（存在する場合のみ）
-        # 古いカラム名と新しいカラム名の両方をサポート
+        # 実際のSigmaカラム名（スペース区切り）と旧カラム名の両方をサポート
         optional_metrics = [
+            'View Uu Rate',  # Sigmaの実際のカラム名
             'View-Through Rate',
             'VIEW UU RATE',
+            'Click Uu Rate',  # Sigmaの実際のカラム名
             'Click-Through Rate',
             'CLICK UU RATE',
+            'A 2 C Uu Rate',  # Sigmaの実際のカラム名
             'Add-to-Cart Rate',
             'A2C UU RATE',
+            '25 View Completion Uu Rate',  # Sigmaの実際のカラム名
             'Video Completion Rate (25%)',
             '25P VIEW COMPLETION UU RATE',
+            '50 View Completion Uu Rate',  # Sigmaの実際のカラム名
             'Video Completion Rate (50%)',
             '50P VIEW COMPLETION UU RATE',
+            '75 View Completion Uu Rate',  # Sigmaの実際のカラム名
             'Video Completion Rate (75%)',
             '75P VIEW COMPLETION UU RATE',
+            '100 View Completion Uu Rate',  # Sigmaの実際のカラム名
             'Video Completion Rate (100%)',
             '100P VIEW_COMPLETION UU RATE'
         ]
@@ -292,22 +301,26 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         new_column_names = []
         if 'Channel Name' in merged_df.columns:
             new_column_names.append('チャンネル名')
-        new_column_names.extend(['業種', '国', 'URL', 'VIDEO_VIEWS'])
+        new_column_names.extend(['業種', '国', 'URL'])
         
-        # 新しい指標のカラム名を追加（新旧両方のカラム名に対応）
-        if 'View-Through Rate' in merged_df.columns or 'VIEW UU RATE' in merged_df.columns:
+        # Video Viewsカラムが存在する場合のみ追加
+        if video_views_col:
+            new_column_names.append('VIDEO_VIEWS')
+        
+        # 新しい指標のカラム名を追加（実際のSigmaカラム名に対応）
+        if 'View Uu Rate' in merged_df.columns or 'View-Through Rate' in merged_df.columns or 'VIEW UU RATE' in merged_df.columns:
             new_column_names.append('VIEWTHROUGH_RATE')
-        if 'Click-Through Rate' in merged_df.columns or 'CLICK UU RATE' in merged_df.columns:
+        if 'Click Uu Rate' in merged_df.columns or 'Click-Through Rate' in merged_df.columns or 'CLICK UU RATE' in merged_df.columns:
             new_column_names.append('CLICKTHROUGH_RATE')
-        if 'Add-to-Cart Rate' in merged_df.columns or 'A2C UU RATE' in merged_df.columns:
+        if 'A 2 C Uu Rate' in merged_df.columns or 'Add-to-Cart Rate' in merged_df.columns or 'A2C UU RATE' in merged_df.columns:
             new_column_names.append('A2C_RATE')
-        if 'Video Completion Rate (25%)' in merged_df.columns or '25P VIEW COMPLETION UU RATE' in merged_df.columns:
+        if '25 View Completion Uu Rate' in merged_df.columns or 'Video Completion Rate (25%)' in merged_df.columns or '25P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_25P')
-        if 'Video Completion Rate (50%)' in merged_df.columns or '50P VIEW COMPLETION UU RATE' in merged_df.columns:
+        if '50 View Completion Uu Rate' in merged_df.columns or 'Video Completion Rate (50%)' in merged_df.columns or '50P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_50P')
-        if 'Video Completion Rate (75%)' in merged_df.columns or '75P VIEW COMPLETION UU RATE' in merged_df.columns:
+        if '75 View Completion Uu Rate' in merged_df.columns or 'Video Completion Rate (75%)' in merged_df.columns or '75P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_75P')
-        if 'Video Completion Rate (100%)' in merged_df.columns or '100P VIEW_COMPLETION UU RATE' in merged_df.columns:
+        if '100 View Completion Uu Rate' in merged_df.columns or 'Video Completion Rate (100%)' in merged_df.columns or '100P VIEW_COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_100P')
         
         result_df.columns = new_column_names
