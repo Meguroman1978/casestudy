@@ -1283,6 +1283,27 @@ def capture_screenshot_with_playwright(url, width=1200, height=800, firework_for
                     # URLにアクセス
                     page.goto(url, **strategy)
                     
+                    # 人間のように振る舞う：マウス移動とスクロール
+                    try:
+                        # ランダムなマウス移動
+                        page.mouse.move(100, 100)
+                        page.wait_for_timeout(300)
+                        page.mouse.move(500, 300)
+                        page.wait_for_timeout(300)
+                        
+                        # スクロールダウン（ゆっくり）
+                        for _ in range(3):
+                            page.evaluate('window.scrollBy(0, 300)')
+                            page.wait_for_timeout(200)
+                        
+                        # 最上部に戻る
+                        page.evaluate('window.scrollTo(0, 0)')
+                        page.wait_for_timeout(500)
+                        
+                        logger.info("✅ Human-like behavior simulation completed")
+                    except Exception as behavior_error:
+                        logger.warning(f"Human behavior simulation failed: {behavior_error}")
+                    
                     # 少し待機してページを安定させる
                     page.wait_for_timeout(2000)  # 2秒に短縮
                     
@@ -2036,15 +2057,46 @@ Firework動画周辺のコンテキスト:
         return fallback
 
 def crawl_and_analyze_website(url, language='ja'):
-    """WebクローラーでWebサイト情報を取得し、OpenAI APIで分析"""
+    """Playwrightを使用してWebサイト情報を取得し、OpenAI APIで分析"""
     try:
+        from playwright.sync_api import sync_playwright
         from bs4 import BeautifulSoup
         
         fallback = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
         
-        # ウェブサイトをクロール
-        response = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
-        html_content = response.text
+        logger.info(f"🌐 Starting website analysis with Playwright for: {url}")
+        
+        # Playwrightでウェブサイトをクロール（JavaScriptレンダリング対応）
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(
+                viewport={'width': 1280, 'height': 720},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
+            page = context.new_page()
+            
+            try:
+                # ページを読み込む（タイムアウト30秒）
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                
+                # 少し待機してJavaScriptが完全に実行されるのを待つ
+                page.wait_for_timeout(2000)
+                
+                # ページのHTMLコンテンツを取得
+                html_content = page.content()
+                
+                browser.close()
+                
+                logger.info(f"✅ Page content loaded successfully: {len(html_content)} characters")
+                
+            except Exception as playwright_error:
+                logger.error(f"Playwright error: {playwright_error}")
+                browser.close()
+                # フォールバックとして通常のrequestsを試す
+                response = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+                html_content = response.text
+        
+        # BeautifulSoupでHTMLを解析
         soup = BeautifulSoup(html_content, 'html.parser')
         
         # テキストコンテンツを抽出（スクリプトやスタイルを除外）
@@ -2060,6 +2112,8 @@ def crawl_and_analyze_website(url, language='ja'):
         # テキストが長すぎる場合は切り詰め（OpenAI APIのトークン制限のため）
         if len(text) > 3000:
             text = text[:3000]
+        
+        logger.info(f"📝 Extracted text content: {len(text)} characters")
         
         # OpenAI APIで要約
         openai_api_key = os.environ.get('OPENAI_API_KEY', '')
@@ -2098,7 +2152,7 @@ def crawl_and_analyze_website(url, language='ja'):
         if summary_response.status_code == 200:
             result = summary_response.json()
             summary = result['choices'][0]['message']['content']
-            logger.info(f"Website summary generated: {summary[:100]}...")
+            logger.info(f"✅ Website summary generated: {summary[:100]}...")
             return summary
         else:
             logger.error(f"OpenAI API error: {summary_response.status_code}")
