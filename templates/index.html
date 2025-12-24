@@ -1480,7 +1480,11 @@
                         country: rowData['国'],
                         url: rowData['URL'],
                         format: rowData['フォーマット'] || rowData['Format'] || 'Unknown',  // フォーマットを追加
-                        language: currentLanguage
+                        language: currentLanguage,
+                        // 新しい指標を追加
+                        view_through_uu_rate: rowData['VIEWTHROUGH_RATE'] || rowData['View-Through UU Rate'] || 'N/A',
+                        cta_click_uu_rate: rowData['CLICKTHROUGH_RATE'] || rowData['CTA Click UU Rate'] || 'N/A',
+                        completion_50_uu_rate: rowData['COMPLETION_RATE_50P'] || rowData['50% Completion UU Rate'] || 'N/A'
                     })
                 });
                 
