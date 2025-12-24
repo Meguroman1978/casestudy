@@ -2122,8 +2122,14 @@ def create_pptx():
         url = data.get('url', '')
         language = data.get('language', 'ja')
         
+        # 新しい指標を取得
+        view_through_uu_rate = data.get('view_through_uu_rate', 'N/A')
+        cta_click_uu_rate = data.get('cta_click_uu_rate', 'N/A')
+        completion_50_uu_rate = data.get('completion_50_uu_rate', 'N/A')
+        
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
+        logger.info(f"指標データ: View-Through UU Rate={view_through_uu_rate}, CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
@@ -2199,7 +2205,10 @@ def create_pptx():
             '{URL}': url,
             '{Website description}': website_description_enhanced,
             '{Why firework?}': why_firework_text,
-            '{Format}': detected_format  # フォーマットを追加
+            '{Format}': detected_format,  # フォーマットを追加
+            '{View-Through UU Rate}': str(view_through_uu_rate),  # 新しい指標
+            '{CTA Click UU Rate}': str(cta_click_uu_rate),  # 新しい指標
+            '{50% Completion UU Rate}': str(completion_50_uu_rate)  # 新しい指標
         }
         
         for shape in slide.shapes:

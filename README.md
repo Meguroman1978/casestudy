@@ -87,7 +87,7 @@ PPTXファイル生成機能は**Google Slides**をテンプレートとして�
 
 **ローカル開発環境:**
 ```bash
-export GOOGLE_SLIDES_ID="1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess"
+export GOOGLE_SLIDES_ID="1Yw3neFepcB48ZMN-VqHFN9vhAnWJbfro2bJDLC7JvsU"
 python download_template_from_slides.py  # Template.pptxをダウンロード
 ```
 
@@ -192,7 +192,7 @@ Google Sheetは環境変数`GOOGLE_SHEET_ID`で指定されます（セキュリ
    ```
    OPENAI_API_KEY=（新しく生成したOpenAI APIキー - 古いキーは無効化済み）
    GOOGLE_SHEET_ID=1EsNylv4Leg73lb_AXJLMBnQKkozvHhLzfVGlz4HN2Tk
-   GOOGLE_SLIDES_ID=1KpJaTV4jgaUUDFhZg59KGGzaJCsO-rggv12NWRdkess
+   GOOGLE_SLIDES_ID=1Yw3neFepcB48ZMN-VqHFN9vhAnWJbfro2bJDLC7JvsU
    ```
    
    **注意:** 
