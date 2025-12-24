@@ -328,9 +328,9 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         optional_metric_cols = ['THUMBNAIL_IMPRESSIONS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE']
         for col in optional_metric_cols:
             if col in result_df.columns:
-                # 率系は平均、回数系は合計
+                # 率系は中央値、回数系は合計
                 if 'RATE' in col:
-                    agg_dict[col] = 'mean'
+                    agg_dict[col] = 'median'
                 else:
                     agg_dict[col] = 'sum'
         
