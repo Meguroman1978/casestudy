@@ -301,14 +301,20 @@
                             <option value="none" data-lang-key="sort_none">並び替えなし</option>
                             <option value="VIDEO_VIEWS_desc" data-lang-key="sort_views_desc">再生回数（高→低）</option>
                             <option value="VIDEO_VIEWS_asc" data-lang-key="sort_views_asc">再生回数（低→高）</option>
-                            <option value="THUMBNAIL_IMPRESSIONS_desc" data-lang-key="sort_impressions_desc">サムネイル表示回数（高→低）</option>
-                            <option value="THUMBNAIL_IMPRESSIONS_asc" data-lang-key="sort_impressions_asc">サムネイル表示回数（低→高）</option>
                             <option value="VIEWTHROUGH_RATE_desc" data-lang-key="sort_vtr_desc">ビュースルー率（高→低）</option>
                             <option value="VIEWTHROUGH_RATE_asc" data-lang-key="sort_vtr_asc">ビュースルー率（低→高）</option>
                             <option value="CLICKTHROUGH_RATE_desc" data-lang-key="sort_ctr_desc">CTAクリック率（高→低）</option>
                             <option value="CLICKTHROUGH_RATE_asc" data-lang-key="sort_ctr_asc">CTAクリック率（低→高）</option>
                             <option value="A2C_RATE_desc" data-lang-key="sort_a2c_desc">カート追加率（高→低）</option>
                             <option value="A2C_RATE_asc" data-lang-key="sort_a2c_asc">カート追加率（低→高）</option>
+                            <option value="COMPLETION_RATE_25P_desc" data-lang-key="sort_cr25_desc">視聴完了率25%（高→低）</option>
+                            <option value="COMPLETION_RATE_25P_asc" data-lang-key="sort_cr25_asc">視聴完了率25%（低→高）</option>
+                            <option value="COMPLETION_RATE_50P_desc" data-lang-key="sort_cr50_desc">視聴完了率50%（高→低）</option>
+                            <option value="COMPLETION_RATE_50P_asc" data-lang-key="sort_cr50_asc">視聴完了率50%（低→高）</option>
+                            <option value="COMPLETION_RATE_75P_desc" data-lang-key="sort_cr75_desc">視聴完了率75%（高→低）</option>
+                            <option value="COMPLETION_RATE_75P_asc" data-lang-key="sort_cr75_asc">視聴完了率75%（低→高）</option>
+                            <option value="COMPLETION_RATE_100P_desc" data-lang-key="sort_cr100_desc">視聴完了率100%（高→低）</option>
+                            <option value="COMPLETION_RATE_100P_asc" data-lang-key="sort_cr100_asc">視聴完了率100%（低→高）</option>
                         </select>
                     </div>
                     
@@ -321,7 +327,7 @@
             </div>
             
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="min-w-full divide-y divide-gray-200 text-xs">
                     <thead class="bg-gray-50">
                         <tr id="tableHeader"></tr>
                     </thead>
@@ -387,14 +393,20 @@
             sort_none: { ja: '並び替えなし', en: 'No sorting' },
             sort_views_desc: { ja: '再生回数（高→低）', en: 'Video Views (High→Low)' },
             sort_views_asc: { ja: '再生回数（低→高）', en: 'Video Views (Low→High)' },
-            sort_impressions_desc: { ja: 'サムネイル表示回数（高→低）', en: 'Thumbnail Impressions (High→Low)' },
-            sort_impressions_asc: { ja: 'サムネイル表示回数（低→高）', en: 'Thumbnail Impressions (Low→High)' },
             sort_vtr_desc: { ja: 'ビュースルー率（高→低）', en: 'View-Through Rate (High→Low)' },
             sort_vtr_asc: { ja: 'ビュースルー率（低→高）', en: 'View-Through Rate (Low→High)' },
             sort_ctr_desc: { ja: 'CTAクリック率（高→低）', en: 'CTA Click-Through Rate (High→Low)' },
             sort_ctr_asc: { ja: 'CTAクリック率（低→高）', en: 'CTA Click-Through Rate (Low→High)' },
             sort_a2c_desc: { ja: 'カート追加率（高→低）', en: 'Add-to-Cart Rate (High→Low)' },
             sort_a2c_asc: { ja: 'カート追加率（低→高）', en: 'Add-to-Cart Rate (Low→High)' },
+            sort_cr25_desc: { ja: '視聴完了率25%（高→低）', en: 'Completion Rate 25% (High→Low)' },
+            sort_cr25_asc: { ja: '視聴完了率25%（低→高）', en: 'Completion Rate 25% (Low→High)' },
+            sort_cr50_desc: { ja: '視聴完了率50%（高→低）', en: 'Completion Rate 50% (High→Low)' },
+            sort_cr50_asc: { ja: '視聴完了率50%（低→高）', en: 'Completion Rate 50% (Low→High)' },
+            sort_cr75_desc: { ja: '視聴完了率75%（高→低）', en: 'Completion Rate 75% (High→Low)' },
+            sort_cr75_asc: { ja: '視聴完了率75%（低→高）', en: 'Completion Rate 75% (Low→High)' },
+            sort_cr100_desc: { ja: '視聴完了率100%（高→低）', en: 'Completion Rate 100% (High→Low)' },
+            sort_cr100_asc: { ja: '視聴完了率100%（低→高）', en: 'Completion Rate 100% (Low→High)' },
             group_by_domain: { ja: 'ドメインごとにグループ化', en: 'Group by Domain' },
             load_more: { ja: '次の10件を見る', en: 'Show Next 10' },
             download_csv: { ja: 'CSVでダウンロード', en: 'Download CSV' },
@@ -967,10 +979,13 @@
                             'フォーマット': 'Format',
                             'URL': 'URL',
                             'VIDEO_VIEWS': 'Video Views',
-                            'THUMBNAIL_IMPRESSIONS': 'Thumbnail Impressions',
                             'VIEWTHROUGH_RATE': 'View-Through Rate',
                             'CLICKTHROUGH_RATE': 'CTA Click Rate',
-                            'A2C_RATE': 'Add-to-Cart Rate'
+                            'A2C_RATE': 'Add-to-Cart Rate',
+                            'COMPLETION_RATE_25P': 'Completion Rate 25%',
+                            'COMPLETION_RATE_50P': 'Completion Rate 50%',
+                            'COMPLETION_RATE_75P': 'Completion Rate 75%',
+                            'COMPLETION_RATE_100P': 'Completion Rate 100%'
                         };
                         return mapping[col] || col;
                     }
@@ -1242,10 +1257,13 @@
                 'フォーマット': currentLanguage === 'ja' ? 'フォーマット' : 'Format',
                 'URL': 'URL',
                 'VIDEO_VIEWS': currentLanguage === 'ja' ? '再生数' : 'Video Views',
-                'THUMBNAIL_IMPRESSIONS': currentLanguage === 'ja' ? 'サムネイル表示回数' : 'Thumbnail Impressions',
                 'VIEWTHROUGH_RATE': currentLanguage === 'ja' ? 'ビュースルー率' : 'View-Through Rate',
                 'CLICKTHROUGH_RATE': currentLanguage === 'ja' ? 'CTAクリック率' : 'CTA Click Rate',
-                'A2C_RATE': currentLanguage === 'ja' ? 'カート追加率' : 'Add-to-Cart Rate'
+                'A2C_RATE': currentLanguage === 'ja' ? 'カート追加率' : 'Add-to-Cart Rate',
+                'COMPLETION_RATE_25P': currentLanguage === 'ja' ? '視聴完了率25%' : 'Completion Rate 25%',
+                'COMPLETION_RATE_50P': currentLanguage === 'ja' ? '視聴完了率50%' : 'Completion Rate 50%',
+                'COMPLETION_RATE_75P': currentLanguage === 'ja' ? '視聴完了率75%' : 'Completion Rate 75%',
+                'COMPLETION_RATE_100P': currentLanguage === 'ja' ? '視聴完了率100%' : 'Completion Rate 100%'
             };
             
             // テーブルヘッダーを作成
@@ -1253,15 +1271,15 @@
             if (groupByDomain) {
                 // グループ化時は展開アイコン列を追加
                 const expandTh = document.createElement('th');
-                expandTh.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                expandTh.className = 'px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
                 expandTh.textContent = '';
-                expandTh.style.width = '40px';
+                expandTh.style.width = '30px';
                 tableHeader.appendChild(expandTh);
             }
             
             data.columns.forEach(col => {
                 const th = document.createElement('th');
-                th.className = 'px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.className = 'px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
                 th.textContent = columnMapping[col] || col;
                 tableHeader.appendChild(th);
             });
@@ -1293,14 +1311,14 @@
                     
                     // 展開アイコン
                     const expandTd = document.createElement('td');
-                    expandTd.className = 'px-6 py-4 text-sm text-gray-900';
+                    expandTd.className = 'px-2 py-2 text-xs text-gray-900';
                     expandTd.innerHTML = '<span class="expand-icon inline-block">▶</span>';
                     headerTr.appendChild(expandTd);
                     
                     // 各列のヘッダーを動的に生成
                     data.columns.forEach(col => {
                         const td = document.createElement('td');
-                        td.className = 'px-6 py-4 text-sm font-semibold text-gray-900';
+                        td.className = 'px-3 py-2 text-xs font-semibold text-gray-900';
                         
                         if (col === 'URL') {
                             // 言語に応じてURL件数表記を変更
@@ -1340,12 +1358,12 @@
                         
                         // 空のセル（展開アイコンの列）
                         const emptyTd = document.createElement('td');
-                        emptyTd.className = 'px-6 py-4';
+                        emptyTd.className = 'px-3 py-2';
                         detailTr.appendChild(emptyTd);
                         
                         data.columns.forEach(col => {
                             const td = document.createElement('td');
-                            td.className = 'px-6 py-4 text-sm text-gray-700';
+                            td.className = 'px-3 py-2 text-xs text-gray-700';
                             
                             if (col === 'URL') {
                                 const urlContainer = document.createElement('div');
@@ -1384,7 +1402,7 @@
                     
                     data.columns.forEach(col => {
                         const td = document.createElement('td');
-                        td.className = 'px-6 py-4 text-sm text-gray-900';
+                        td.className = 'px-3 py-2 text-xs text-gray-900';
                         
                         if (col === 'URL') {
                             const urlContainer = document.createElement('div');

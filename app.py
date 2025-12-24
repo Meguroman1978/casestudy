@@ -275,14 +275,20 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         new_column_names.extend(['業種', '国', 'URL', 'VIDEO_VIEWS'])
         
         # 新しい指標のカラム名を追加
-        if 'Thumbnail Impressions' in merged_df.columns:
-            new_column_names.append('THUMBNAIL_IMPRESSIONS')
         if 'View-Through Rate' in merged_df.columns:
             new_column_names.append('VIEWTHROUGH_RATE')
         if 'Click-Through Rate' in merged_df.columns:
             new_column_names.append('CLICKTHROUGH_RATE')
         if 'Add-to-Cart Rate' in merged_df.columns:
             new_column_names.append('A2C_RATE')
+        if 'Video Completion Rate (25%)' in merged_df.columns:
+            new_column_names.append('COMPLETION_RATE_25P')
+        if 'Video Completion Rate (50%)' in merged_df.columns:
+            new_column_names.append('COMPLETION_RATE_50P')
+        if 'Video Completion Rate (75%)' in merged_df.columns:
+            new_column_names.append('COMPLETION_RATE_75P')
+        if 'Video Completion Rate (100%)' in merged_df.columns:
+            new_column_names.append('COMPLETION_RATE_100P')
         
         result_df.columns = new_column_names
         
@@ -325,11 +331,13 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         }
         
         # オプションの指標カラムがある場合は集計に含める
-        optional_metric_cols = ['THUMBNAIL_IMPRESSIONS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE']
+        optional_metric_cols = ['VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE', 
+                               'COMPLETION_RATE_25P', 'COMPLETION_RATE_50P', 
+                               'COMPLETION_RATE_75P', 'COMPLETION_RATE_100P']
         for col in optional_metric_cols:
             if col in result_df.columns:
                 # 率系は中央値、回数系は合計
-                if 'RATE' in col:
+                if 'RATE' in col or 'COMPLETION' in col:
                     agg_dict[col] = 'median'
                 else:
                     agg_dict[col] = 'sum'
@@ -754,7 +762,9 @@ def process_data():
             desired_order.append('URL')
         
         # 指標カラムを追加（存在する場合のみ）
-        metric_columns = ['VIDEO_VIEWS', 'THUMBNAIL_IMPRESSIONS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE']
+        metric_columns = ['VIDEO_VIEWS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE',
+                         'COMPLETION_RATE_25P', 'COMPLETION_RATE_50P', 
+                         'COMPLETION_RATE_75P', 'COMPLETION_RATE_100P']
         for col in metric_columns:
             if col in filtered_data.columns:
                 desired_order.append(col)
