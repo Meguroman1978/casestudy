@@ -2177,13 +2177,31 @@ def create_pptx():
         language = data.get('language', 'ja')
         
         # 新しい指標を取得
-        view_through_uu_rate = data.get('view_through_uu_rate', 'N/A')
-        cta_click_uu_rate = data.get('cta_click_uu_rate', 'N/A')
-        completion_50_uu_rate = data.get('completion_50_uu_rate', 'N/A')
+        view_through_uu_rate_raw = data.get('view_through_uu_rate', 'N/A')
+        cta_click_uu_rate_raw = data.get('cta_click_uu_rate', 'N/A')
+        completion_50_uu_rate_raw = data.get('completion_50_uu_rate', 'N/A')
+        
+        # パーセント表示用に100倍する（0.5 → 50%）
+        def format_as_percentage(value):
+            """数値を100倍してパーセント表示にする"""
+            if value == 'N/A' or value is None or value == '':
+                return 'N/A'
+            try:
+                numeric_value = float(value)
+                percentage = numeric_value * 100
+                # 小数点以下2桁まで表示
+                return f"{percentage:.2f}%"
+            except (ValueError, TypeError):
+                return 'N/A'
+        
+        view_through_uu_rate = format_as_percentage(view_through_uu_rate_raw)
+        cta_click_uu_rate = format_as_percentage(cta_click_uu_rate_raw)
+        completion_50_uu_rate = format_as_percentage(completion_50_uu_rate_raw)
         
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
-        logger.info(f"指標データ: View-Through UU Rate={view_through_uu_rate}, CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
+        logger.info(f"指標データ(raw): View-Through UU Rate={view_through_uu_rate_raw}, CTA Click UU Rate={cta_click_uu_rate_raw}, 50% Completion UU Rate={completion_50_uu_rate_raw}")
+        logger.info(f"指標データ(formatted): View-Through UU Rate={view_through_uu_rate}, CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
@@ -2260,10 +2278,17 @@ def create_pptx():
             '{Website description}': website_description_enhanced,
             '{Why firework?}': why_firework_text,
             '{Format}': detected_format,  # フォーマットを追加
-            '{View-Through UU Rate}': str(view_through_uu_rate),  # 新しい指標
-            '{CTA Click UU Rate}': str(cta_click_uu_rate),  # 新しい指標
-            '{50% Completion UU Rate}': str(completion_50_uu_rate)  # 新しい指標
+            '{View-Through UU Rate}': view_through_uu_rate,  # パーセント表示済み
+            '{CTA Click UU Rate}': cta_click_uu_rate,  # パーセント表示済み
+            '{50% Completion UU Rate}': completion_50_uu_rate  # パーセント表示済み
         }
+        
+        # デバッグ: replacements辞書の内容をログ出力
+        logger.info("========== Replacements Dictionary ==========")
+        for key, value in replacements.items():
+            value_preview = str(value)[:100] if value else 'None'
+            logger.info(f"  {key}: {value_preview}")
+        logger.info("==========================================")
         
         for shape in slide.shapes:
             if hasattr(shape, "text"):
@@ -2273,6 +2298,7 @@ def create_pptx():
                 # すべてのプレースホルダーを置換
                 for placeholder, value in replacements.items():
                     if placeholder in new_text:
+                        logger.info(f"🔄 Found placeholder '{placeholder}' in shape. Replacing with: {str(value)[:50]}...")
                         new_text = new_text.replace(placeholder, value)
                 
                 # テキストが変更された場合のみ更新
