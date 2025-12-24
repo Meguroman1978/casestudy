@@ -242,19 +242,39 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         logger.info("[STEP 5] 結果データ整形中...")
         
         # 必要な列を構築（会社名とビジネス名は削除）
+        # Video Viewsカラムの名前を特定（新旧両対応）
+        video_views_col = None
+        if 'VIDEO VIEWS 3S UU' in merged_df.columns:
+            video_views_col = 'VIDEO VIEWS 3S UU'
+        elif 'Video Views' in merged_df.columns:
+            video_views_col = 'Video Views'
+        
         columns_to_extract = [
             'Account: Industry',
             'Account: Owner Territory',
-            'Page Url',
-            'Video Views'
+            'Page Url'
         ]
         
+        if video_views_col:
+            columns_to_extract.append(video_views_col)
+        
         # 新しい指標カラムを追加（存在する場合のみ）
+        # 古いカラム名と新しいカラム名の両方をサポート
         optional_metrics = [
-            'Thumbnail Impressions',
             'View-Through Rate',
+            'VIEW UU RATE',
             'Click-Through Rate',
-            'Add-to-Cart Rate'
+            'CLICK UU RATE',
+            'Add-to-Cart Rate',
+            'A2C UU RATE',
+            'Video Completion Rate (25%)',
+            '25P VIEW COMPLETION UU RATE',
+            'Video Completion Rate (50%)',
+            '50P VIEW COMPLETION UU RATE',
+            'Video Completion Rate (75%)',
+            '75P VIEW COMPLETION UU RATE',
+            'Video Completion Rate (100%)',
+            '100P VIEW_COMPLETION UU RATE'
         ]
         
         for metric in optional_metrics:
@@ -274,20 +294,20 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
             new_column_names.append('チャンネル名')
         new_column_names.extend(['業種', '国', 'URL', 'VIDEO_VIEWS'])
         
-        # 新しい指標のカラム名を追加
-        if 'View-Through Rate' in merged_df.columns:
+        # 新しい指標のカラム名を追加（新旧両方のカラム名に対応）
+        if 'View-Through Rate' in merged_df.columns or 'VIEW UU RATE' in merged_df.columns:
             new_column_names.append('VIEWTHROUGH_RATE')
-        if 'Click-Through Rate' in merged_df.columns:
+        if 'Click-Through Rate' in merged_df.columns or 'CLICK UU RATE' in merged_df.columns:
             new_column_names.append('CLICKTHROUGH_RATE')
-        if 'Add-to-Cart Rate' in merged_df.columns:
+        if 'Add-to-Cart Rate' in merged_df.columns or 'A2C UU RATE' in merged_df.columns:
             new_column_names.append('A2C_RATE')
-        if 'Video Completion Rate (25%)' in merged_df.columns:
+        if 'Video Completion Rate (25%)' in merged_df.columns or '25P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_25P')
-        if 'Video Completion Rate (50%)' in merged_df.columns:
+        if 'Video Completion Rate (50%)' in merged_df.columns or '50P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_50P')
-        if 'Video Completion Rate (75%)' in merged_df.columns:
+        if 'Video Completion Rate (75%)' in merged_df.columns or '75P VIEW COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_75P')
-        if 'Video Completion Rate (100%)' in merged_df.columns:
+        if 'Video Completion Rate (100%)' in merged_df.columns or '100P VIEW_COMPLETION UU RATE' in merged_df.columns:
             new_column_names.append('COMPLETION_RATE_100P')
         
         result_df.columns = new_column_names
