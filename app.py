@@ -359,9 +359,12 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         agg_dict = {
             '業種': 'first',
             '国': 'first',
-            'VIDEO_VIEWS': 'sum',
             'URL': 'count'
         }
+        
+        # VIDEO_VIEWSカラムがある場合のみ追加
+        if 'VIDEO_VIEWS' in result_df.columns:
+            agg_dict['VIDEO_VIEWS'] = 'sum'
         
         # オプションの指標カラムがある場合は集計に含める
         optional_metric_cols = ['VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE', 
@@ -382,8 +385,12 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         # グループ化して集計
         channel_summary = result_df.groupby(group_column).agg(agg_dict).reset_index()
         
-        # 合計視聴回数で降順ソート (ページングで制限するのでhead(20)は削除)
-        channel_summary = channel_summary.sort_values('VIDEO_VIEWS', ascending=False)
+        # 合計視聴回数で降順ソート（VIDEO_VIEWSがある場合のみ）
+        if 'VIDEO_VIEWS' in channel_summary.columns:
+            channel_summary = channel_summary.sort_values('VIDEO_VIEWS', ascending=False)
+        else:
+            # VIDEO_VIEWSがない場合はURL数でソート
+            channel_summary = channel_summary.sort_values('URL', ascending=False)
         
         logger.info(f"グループ化完了: Top {len(channel_summary)}件")
         
@@ -398,8 +405,11 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         channel_list = paginated_channels[group_column].tolist()
         detailed_data = result_df[result_df[group_column].isin(channel_list)].copy()
         
-        # 視聴回数で降順ソート（チャンネル内）
-        detailed_data = detailed_data.sort_values([group_column, 'VIDEO_VIEWS'], ascending=[True, False])
+        # 視聴回数で降順ソート（チャンネル内）- VIDEO_VIEWSがある場合のみ
+        if 'VIDEO_VIEWS' in detailed_data.columns:
+            detailed_data = detailed_data.sort_values([group_column, 'VIDEO_VIEWS'], ascending=[True, False])
+        else:
+            detailed_data = detailed_data.sort_values(group_column, ascending=True)
         
         # 各チャンネルのURL数を最大3に制限
         detailed_data = detailed_data.groupby(group_column).head(3).reset_index(drop=True)
