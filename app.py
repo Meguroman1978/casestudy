@@ -249,6 +249,19 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
             'Video Views'
         ]
         
+        # 新しい指標カラムを追加（存在する場合のみ）
+        optional_metrics = [
+            'Thumbnail Impressions',
+            'View-Through Rate',
+            'Click-Through Rate',
+            'Add-to-Cart Rate'
+        ]
+        
+        for metric in optional_metrics:
+            if metric in merged_df.columns:
+                columns_to_extract.append(metric)
+                logger.info(f"追加指標を検出: {metric}")
+        
         # Channel Nameがある場合は追加（最初に配置）
         if 'Channel Name' in merged_df.columns:
             columns_to_extract.insert(0, 'Channel Name')
@@ -259,7 +272,17 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         new_column_names = []
         if 'Channel Name' in merged_df.columns:
             new_column_names.append('チャンネル名')
-        new_column_names.extend(['業種', '国', 'URL', '_views'])
+        new_column_names.extend(['業種', '国', 'URL', 'VIDEO_VIEWS'])
+        
+        # 新しい指標のカラム名を追加
+        if 'Thumbnail Impressions' in merged_df.columns:
+            new_column_names.append('THUMBNAIL_IMPRESSIONS')
+        if 'View-Through Rate' in merged_df.columns:
+            new_column_names.append('VIEWTHROUGH_RATE')
+        if 'Click-Through Rate' in merged_df.columns:
+            new_column_names.append('CLICKTHROUGH_RATE')
+        if 'Add-to-Cart Rate' in merged_df.columns:
+            new_column_names.append('A2C_RATE')
         
         result_df.columns = new_column_names
         
@@ -297,9 +320,19 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         agg_dict = {
             '業種': 'first',
             '国': 'first',
-            '_views': 'sum',
+            'VIDEO_VIEWS': 'sum',
             'URL': 'count'
         }
+        
+        # オプションの指標カラムがある場合は集計に含める
+        optional_metric_cols = ['THUMBNAIL_IMPRESSIONS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE']
+        for col in optional_metric_cols:
+            if col in result_df.columns:
+                # 率系は平均、回数系は合計
+                if 'RATE' in col:
+                    agg_dict[col] = 'mean'
+                else:
+                    agg_dict[col] = 'sum'
         
         # チャンネル名がある場合（グループ化対象でない場合のみ）
         if 'チャンネル名' in result_df.columns and group_column != 'チャンネル名':
@@ -309,7 +342,7 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         channel_summary = result_df.groupby(group_column).agg(agg_dict).reset_index()
         
         # 合計視聴回数で降順ソート (ページングで制限するのでhead(20)は削除)
-        channel_summary = channel_summary.sort_values('_views', ascending=False)
+        channel_summary = channel_summary.sort_values('VIDEO_VIEWS', ascending=False)
         
         logger.info(f"グループ化完了: Top {len(channel_summary)}件")
         
@@ -325,7 +358,7 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
         detailed_data = result_df[result_df[group_column].isin(channel_list)].copy()
         
         # 視聴回数で降順ソート（チャンネル内）
-        detailed_data = detailed_data.sort_values([group_column, '_views'], ascending=[True, False])
+        detailed_data = detailed_data.sort_values([group_column, 'VIDEO_VIEWS'], ascending=[True, False])
         
         # 各チャンネルのURL数を最大3に制限
         detailed_data = detailed_data.groupby(group_column).head(3).reset_index(drop=True)
@@ -587,17 +620,26 @@ def process_data():
         # データの読み込み（メモリ効率化）
         logger.info("[STEP 0] Excelファイル読み込み中...")
         
-        # 必要なカラムのみ読み込んでメモリを節約
+        # 必要なカラムのみ読み込んでメモリを節約（新しい指標を追加）
         required_columns = ['Page Url', 'Business Id', 'Business Name', 'Business Country', 
                           'Channel Id', 'Channel Name', 'Video Views']
+        
+        # オプションの指標カラム（存在する場合のみ読み込む）
+        optional_metrics = ['Thumbnail Impressions', 'View-Through Rate', 'Click-Through Rate', 'Add-to-Cart Rate']
         
         try:
             # read_excel with engine='openpyxl' and read_only=True for memory efficiency
             video_df = pd.read_excel(video_path, engine='openpyxl')
             logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
             
-            # 不要なカラムを削除してメモリを解放
+            # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
             video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
+            # オプションの指標カラムを追加
+            for metric in optional_metrics:
+                if metric in video_df.columns:
+                    video_columns_to_keep.append(metric)
+                    logger.info(f"オプション指標を検出: {metric}")
+            
             if video_columns_to_keep:
                 video_df = video_df[video_columns_to_keep]
                 logger.info(f"必要なカラムのみ保持: {video_columns_to_keep}")
@@ -609,8 +651,14 @@ def process_data():
             live_df = pd.read_excel(live_path, engine='openpyxl')
             logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
             
-            # 不要なカラムを削除してメモリを解放
+            # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
             live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
+            # オプションの指標カラムを追加
+            for metric in optional_metrics:
+                if metric in live_df.columns:
+                    live_columns_to_keep.append(metric)
+                    logger.info(f"オプション指標を検出（ライブ）: {metric}")
+            
             if live_columns_to_keep:
                 live_df = live_df[live_columns_to_keep]
                 logger.info(f"必要なカラムのみ保持: {live_columns_to_keep}")
@@ -691,10 +739,8 @@ def process_data():
             filtered_data = filtered_data.drop('ドメイン', axis=1)
         if 'has_fw_tag' in filtered_data.columns:
             filtered_data = filtered_data.drop('has_fw_tag', axis=1)
-        if '_views' in filtered_data.columns:
-            filtered_data = filtered_data.drop('_views', axis=1)
         
-        # 列の順序を調整：チャンネル名、業種、国、フォーマット、URL
+        # 列の順序を調整：チャンネル名、業種、国、フォーマット、URL、VIDEO_VIEWS、その他の指標
         desired_order = []
         if 'チャンネル名' in filtered_data.columns:
             desired_order.append('チャンネル名')
@@ -706,6 +752,12 @@ def process_data():
             desired_order.append('フォーマット')
         if 'URL' in filtered_data.columns:
             desired_order.append('URL')
+        
+        # 指標カラムを追加（存在する場合のみ）
+        metric_columns = ['VIDEO_VIEWS', 'THUMBNAIL_IMPRESSIONS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE']
+        for col in metric_columns:
+            if col in filtered_data.columns:
+                desired_order.append(col)
         
         # 順序通りに列を並べ替え
         filtered_data = filtered_data[desired_order]
