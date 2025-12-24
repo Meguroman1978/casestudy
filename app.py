@@ -2058,12 +2058,14 @@ Firework動画周辺のコンテキスト:
 
 def crawl_and_analyze_website(url, language='ja'):
     """Playwrightを使用してWebサイト情報を取得し、OpenAI APIで分析"""
+    print(f"🌐🌐🌐 crawl_and_analyze_website CALLED: url={url}, language={language}")
     try:
         from playwright.sync_api import sync_playwright
         from bs4 import BeautifulSoup
         
         fallback = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
         
+        print(f"✅ Imports successful, starting Playwright...")
         logger.info(f"🌐 Starting website analysis with Playwright for: {url}")
         
         # Playwrightでウェブサイトをクロール（JavaScriptレンダリング対応）
