@@ -1202,8 +1202,10 @@
                 return;
             }
             
-            // ソートキーと方向を抽出
-            const [metric, direction] = sortValue.split('_');
+            // ソートキーと方向を抽出（最後の_で分割）
+            const lastUnderscoreIndex = sortValue.lastIndexOf('_');
+            const metric = sortValue.substring(0, lastUnderscoreIndex);
+            const direction = sortValue.substring(lastUnderscoreIndex + 1);
             
             // データをコピーしてソート
             const sortedData = {
