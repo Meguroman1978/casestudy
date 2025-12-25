@@ -1894,6 +1894,122 @@ def capture_screenshot_with_playwright(url, width=1200, height=800, firework_for
         logger.error(traceback.format_exc())
         return None
 
+def capture_firework_video_thumbnail(url, width=400, height=300):
+    """
+    Firework動画のサムネイルをキャプチャする
+    
+    Args:
+        url: ページURL
+        width: サムネイル幅
+        height: サムネイル高さ
+        
+    Returns:
+        BytesIO object containing PNG image, or None if failed
+    """
+    print(f"🎬 capture_firework_video_thumbnail CALLED: url={url}")
+    try:
+        from playwright.sync_api import sync_playwright
+        
+        logger.info(f"🎬 Starting Firework video thumbnail capture for: {url}")
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--disable-web-security',
+                    '--ignore-certificate-errors'
+                ]
+            )
+            
+            context = browser.new_context(
+                viewport={'width': 1280, 'height': 720},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                locale='ja-JP',
+                timezone_id='Asia/Tokyo'
+            )
+            
+            page = context.new_page()
+            
+            try:
+                # ページを読み込む
+                logger.info(f"Loading page: {url}")
+                page.goto(url, wait_until='networkidle', timeout=30000)
+                page.wait_for_timeout(3000)  # 3秒待機
+                
+                # Firework要素を探す
+                # fw-embed-feed, fw-storyblock, fw-video-player などを検索
+                selectors = [
+                    'fw-embed-feed',
+                    'fw-storyblock', 
+                    'fw-video-player',
+                    '[class*="firework"]',
+                    '[id*="firework"]'
+                ]
+                
+                video_element = None
+                for selector in selectors:
+                    try:
+                        elements = page.query_selector_all(selector)
+                        if elements and len(elements) > 0:
+                            video_element = elements[0]
+                            logger.info(f"✅ Found Firework element: {selector}")
+                            break
+                    except Exception:
+                        continue
+                
+                if video_element:
+                    # 要素までスクロール
+                    video_element.scroll_into_view_if_needed()
+                    page.wait_for_timeout(1000)
+                    
+                    # 要素のスクリーンショットを撮る
+                    screenshot_bytes = video_element.screenshot(type='png')
+                    
+                    logger.info(f"✅ Firework video thumbnail captured: {len(screenshot_bytes)} bytes")
+                    browser.close()
+                    
+                    # リサイズ
+                    from PIL import Image
+                    img = Image.open(io.BytesIO(screenshot_bytes))
+                    img.thumbnail((width, height), Image.Resampling.LANCZOS)
+                    
+                    output = io.BytesIO()
+                    img.save(output, format='PNG')
+                    output.seek(0)
+                    
+                    return output
+                else:
+                    logger.warning("⚠️ No Firework video elements found on page")
+                    
+                    # フォールバック: ページ全体のスクリーンショットを撮って、動画っぽい部分を探す
+                    screenshot_bytes = page.screenshot(type='png', full_page=False)
+                    logger.info(f"📸 Fallback: captured full viewport screenshot")
+                    
+                    browser.close()
+                    
+                    from PIL import Image
+                    img = Image.open(io.BytesIO(screenshot_bytes))
+                    img.thumbnail((width, height), Image.Resampling.LANCZOS)
+                    
+                    output = io.BytesIO()
+                    img.save(output, format='PNG')
+                    output.seek(0)
+                    
+                    return output
+                    
+            except Exception as page_error:
+                logger.error(f"Page processing error: {page_error}")
+                logger.error(traceback.format_exc())
+                browser.close()
+                return None
+                
+    except Exception as e:
+        logger.error(f"Firework video thumbnail capture failed: {e}")
+        logger.error(traceback.format_exc())
+        return None
+
 def generate_why_firework(url, html_content, website_description, language='ja', firework_format='Unknown'):
     """OpenAI APIを使用してFirework活用理由を生成（Firework要素とフォーマット情報を含む高度な分析）"""
     try:
@@ -2457,6 +2573,61 @@ def create_pptx():
                         else:
                             shape.text = fallback_screenshot
                         break
+        
+        # Firework動画のサムネイルをキャプチャして挿入
+        logger.info("🎬 Starting Firework video thumbnail capture and insertion...")
+        print("🎬🎬🎬 Starting Firework video thumbnail capture...")
+        
+        video_thumbnail_inserted = False
+        if url:
+            try:
+                video_thumbnail_io = capture_firework_video_thumbnail(url, width=400, height=300)
+                
+                if video_thumbnail_io:
+                    logger.info("✅ Firework video thumbnail captured successfully")
+                    
+                    # {Insert Video here} プレースホルダーを探して置換
+                    for shape in slide.shapes:
+                        if hasattr(shape, "text") and '{Insert Video here}' in shape.text:
+                            logger.info(f"Found {{Insert Video here}} placeholder in shape")
+                            
+                            # 画像を挿入
+                            left = shape.left
+                            top = shape.top
+                            width = shape.width
+                            height = shape.height
+                            
+                            # shapeを削除
+                            sp = shape.element
+                            sp.getparent().remove(sp)
+                            
+                            # 画像を挿入
+                            slide.shapes.add_picture(video_thumbnail_io, left, top, width, height)
+                            
+                            logger.info(f"✅ Firework video thumbnail inserted at position ({left}, {top})")
+                            print(f"✅ Firework video thumbnail inserted successfully")
+                            video_thumbnail_inserted = True
+                            break
+                else:
+                    logger.warning("⚠️ Failed to capture Firework video thumbnail")
+                    print("⚠️ Failed to capture Firework video thumbnail")
+                    
+            except Exception as video_error:
+                logger.error(f"Firework video thumbnail insertion error: {video_error}")
+                logger.error(traceback.format_exc())
+                print(f"❌ Firework video thumbnail error: {video_error}")
+        
+        # フォールバック: 動画サムネイルが挿入されなかった場合、テキストを表示
+        if not video_thumbnail_inserted:
+            fallback_video_text = '手動でFirework動画のサムネイルを貼り付けてください' if language == 'ja' else 'Please manually paste Firework video thumbnail here'
+            for shape in slide.shapes:
+                if hasattr(shape, "text") and '{Insert Video here}' in shape.text:
+                    if hasattr(shape, "text_frame"):
+                        shape.text_frame.text = fallback_video_text
+                    else:
+                        shape.text = fallback_video_text
+                    logger.info("Set fallback text for {Insert Video here}")
+                    break
         
         # ロゴを検索して挿入（Template 3では3つ、改善された検索クエリを使用）
         logo_count = 3  # Template.pptxは3つのロゴプレースホルダー
