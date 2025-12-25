@@ -1281,7 +1281,7 @@
             
             data.columns.forEach(col => {
                 const th = document.createElement('th');
-                th.className = 'px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider';
+                th.className = 'px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap';
                 th.textContent = columnMapping[col] || col;
                 tableHeader.appendChild(th);
             });
@@ -1365,20 +1365,20 @@
                         
                         data.columns.forEach(col => {
                             const td = document.createElement('td');
-                            td.className = 'px-3 py-2 text-xs text-gray-700';
+                            td.className = 'px-3 py-2 text-xs text-gray-700 whitespace-nowrap';
                             
                             if (col === 'URL') {
                                 const urlContainer = document.createElement('div');
-                                urlContainer.className = 'flex items-center gap-2';
+                                urlContainer.className = 'flex items-center gap-2 whitespace-nowrap';
                                 
                                 const link = document.createElement('a');
                                 link.href = row[col];
                                 link.target = '_blank';
-                                link.className = 'text-orange-custom hover:text-orange-600 hover:underline';
+                                link.className = 'text-orange-custom hover:text-orange-600 hover:underline whitespace-nowrap';
                                 link.textContent = row[col];
                                 
                                 const createSlideBtn = document.createElement('button');
-                                createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom';
+                                createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom whitespace-nowrap';
                                 createSlideBtn.textContent = translations.create_slide[currentLanguage];
                                 createSlideBtn.setAttribute('data-lang-key', 'create_slide');
                                 createSlideBtn.onclick = () => createPptxSlide(row);
@@ -1404,20 +1404,20 @@
                     
                     data.columns.forEach(col => {
                         const td = document.createElement('td');
-                        td.className = 'px-3 py-2 text-xs text-gray-900';
+                        td.className = 'px-3 py-2 text-xs text-gray-900 whitespace-nowrap';
                         
                         if (col === 'URL') {
                             const urlContainer = document.createElement('div');
-                            urlContainer.className = 'flex items-center gap-2';
+                            urlContainer.className = 'flex items-center gap-2 whitespace-nowrap';
                             
                             const link = document.createElement('a');
                             link.href = row[col];
                             link.target = '_blank';
-                            link.className = 'text-orange-custom hover:text-orange-600 hover:underline';
+                            link.className = 'text-orange-custom hover:text-orange-600 hover:underline whitespace-nowrap';
                             link.textContent = row[col];
                             
                             const createSlideBtn = document.createElement('button');
-                            createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom';
+                            createSlideBtn.className = 'px-2 py-1 text-xs bg-orange-custom text-white rounded hover:bg-orange-custom whitespace-nowrap';
                             createSlideBtn.textContent = translations.create_slide[currentLanguage];
                             createSlideBtn.setAttribute('data-lang-key', 'create_slide');
                             createSlideBtn.onclick = () => createPptxSlide(row);
