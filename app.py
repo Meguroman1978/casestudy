@@ -2851,8 +2851,6 @@ def create_pptx():
                             if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
                                 left = shape.left
                                 top = shape.top
-                                width = shape.width
-                                height = shape.height
                                 
                                 # プレースホルダーを削除
                                 sp = shape.element
@@ -2861,11 +2859,11 @@ def create_pptx():
                                 # BytesIOを再度シーク（重要！）
                                 img_data.seek(0)
                                 
-                                # 画像をリサイズして挿入
-                                slide.shapes.add_picture(img_data, left, top, width=width, height=height)
+                                # 画像のオリジナルサイズを優先（widthとheightを指定しない）
+                                slide.shapes.add_picture(img_data, left, top)
                                 screenshot_inserted = True
-                                logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes)")
-                                print(f"✅✅✅ Screenshot inserted into {{Insert Screenshot here}} successfully!")
+                                logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes) at ({left}, {top}) with original size {img.width}x{img.height}")
+                                print(f"✅✅✅ Screenshot inserted into {{Insert Screenshot here}} successfully! Size: {img.width}x{img.height}")
                                 break
                 else:
                     logger.warning(f"External API screenshot failed - no image data returned")
@@ -2925,38 +2923,45 @@ def create_pptx():
         print("🎬🎬🎬 Starting Firework video area screenshot capture...")
         
         video_thumbnail_inserted = False
-        if url and screenshot_inserted:
-            # {Insert Screenshot here}の挿入が成功した場合のみ、同じ画像を使用
+        if url:
             try:
-                logger.info("Reusing screenshot from {Insert Screenshot here} for {Insert Video here}")
-                print("📸 Reusing same screenshot for {Insert Video here}...")
+                # {Insert Video here}: 異なるビューポートサイズで別のスクリーンショットを取得
+                logger.info("Capturing different screenshot for {Insert Video here} with wider viewport...")
+                print("🌐 Capturing different screenshot for {Insert Video here} (width=1600, height=900)...")
                 
-                # 同じimg_dataを再利用
-                video_thumbnail_io = capture_screenshot_with_api(url, width=1200, height=800)
+                # より横長のビューポートで撮影（デスクトップ表示に近い）
+                video_thumbnail_io = capture_screenshot_with_api(url, width=1600, height=900)
                 
                 if video_thumbnail_io:
-                    logger.info("✅ Firework video thumbnail captured successfully")
+                    # 画像サイズを確認
+                    video_thumbnail_io.seek(0)
+                    video_img = Image.open(video_thumbnail_io)
+                    video_img_width = video_img.width
+                    video_img_height = video_img.height
+                    logger.info(f"✅ Firework video thumbnail captured successfully: {video_img_width}x{video_img_height}")
+                    print(f"📐 Video thumbnail dimensions: {video_img_width}x{video_img_height}")
                     
                     # {Insert Video here} プレースホルダーを探して置換
                     for shape in slide.shapes:
                         if hasattr(shape, "text") and '{Insert Video here}' in shape.text:
                             logger.info(f"Found {{Insert Video here}} placeholder in shape")
                             
-                            # 画像を挿入
+                            # 画像を挿入（位置のみ指定、サイズはオリジナル）
                             left = shape.left
                             top = shape.top
-                            width = shape.width
-                            height = shape.height
                             
                             # shapeを削除
                             sp = shape.element
                             sp.getparent().remove(sp)
                             
-                            # 画像を挿入
-                            slide.shapes.add_picture(video_thumbnail_io, left, top, width, height)
+                            # BytesIOを再度シーク
+                            video_thumbnail_io.seek(0)
                             
-                            logger.info(f"✅ Firework video thumbnail inserted at position ({left}, {top})")
-                            print(f"✅ Firework video thumbnail inserted successfully")
+                            # 画像をオリジナルサイズで挿入
+                            slide.shapes.add_picture(video_thumbnail_io, left, top)
+                            
+                            logger.info(f"✅ Firework video thumbnail inserted at position ({left}, {top}) with original size {video_img_width}x{video_img_height}")
+                            print(f"✅ Firework video thumbnail inserted successfully! Size: {video_img_width}x{video_img_height}")
                             video_thumbnail_inserted = True
                             break
                 else:
