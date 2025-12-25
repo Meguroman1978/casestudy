@@ -2630,9 +2630,10 @@ def create_pptx():
         language = data.get('language', 'ja')
         print(f"📝 Parsed: channel={channel_name}, industry={industry}, country={country}, url={url}, lang={language}")
         
-        # 新しい指標を取得（View-Through UU Rateは削除）
+        # 新しい指標を取得（CTA Click、50% Completion、100% Completion）
         cta_click_uu_rate_raw = data.get('cta_click_uu_rate', 'N/A')
         completion_50_uu_rate_raw = data.get('completion_50_uu_rate', 'N/A')
+        completion_100_uu_rate_raw = data.get('completion_100_uu_rate', 'N/A')
         
         # パーセント表示用に100倍する（0.5 → 50%）
         def format_as_percentage(value):
@@ -2649,13 +2650,14 @@ def create_pptx():
         
         cta_click_uu_rate = format_as_percentage(cta_click_uu_rate_raw)
         completion_50_uu_rate = format_as_percentage(completion_50_uu_rate_raw)
+        completion_100_uu_rate = format_as_percentage(completion_100_uu_rate_raw)
         
-        print(f"✅ Percentage formatting complete: cta_click={cta_click_uu_rate}, completion_50={completion_50_uu_rate}")
+        print(f"✅ Percentage formatting complete: cta_click={cta_click_uu_rate}, completion_50={completion_50_uu_rate}, completion_100={completion_100_uu_rate}")
         
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
-        logger.info(f"指標データ(raw): CTA Click UU Rate={cta_click_uu_rate_raw}, 50% Completion UU Rate={completion_50_uu_rate_raw}")
-        logger.info(f"指標データ(formatted): CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
+        logger.info(f"指標データ(raw): CTA Click UU Rate={cta_click_uu_rate_raw}, 50% Completion UU Rate={completion_50_uu_rate_raw}, 100% Completion UU Rate={completion_100_uu_rate_raw}")
+        logger.info(f"指標データ(formatted): CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}, 100% Completion UU Rate={completion_100_uu_rate}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
@@ -2733,7 +2735,8 @@ def create_pptx():
             '{Why firework?}': why_firework_text,
             '{Format}': detected_format,  # フォーマットを追加
             '{CTA Click UU Rate}': cta_click_uu_rate,  # パーセント表示済み
-            '{50% Completion UU Rate}': completion_50_uu_rate  # パーセント表示済み
+            '{50% Completion UU Rate}': completion_50_uu_rate,  # パーセント表示済み
+            '{100% Completion UU Rate}': completion_100_uu_rate  # パーセント表示済み
         }
         
         # デバッグ: replacements辞書の内容をログ出力
