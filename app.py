@@ -1185,7 +1185,7 @@ def save_complete_html_page(url, output_path):
 
 def capture_screenshot_with_api(url, width=1200, height=800):
     """
-    外部APIを使用してスクリーンショットを撮影（高速・安定）
+    外部APIを使用してスクリーンショットを撮影（複数のAPIでフォールバック）
     
     Args:
         url: スクリーンショット対象のURL
@@ -1193,47 +1193,79 @@ def capture_screenshot_with_api(url, width=1200, height=800):
         height: 画像高さ
         
     Returns:
-        BytesIO object containing PNG image, or None if failed
+        BytesIO object containing PNG image, or None if all APIs failed
     """
     print(f"📸 capture_screenshot_with_api CALLED: url={url}")
-    try:
-        from urllib.parse import quote
-        import requests
-        
-        encoded_url = quote(url, safe='')
-        
-        # screenshotapi.net を使用（無料、登録不要）
-        api_url = f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=2000"
-        
-        logger.info(f"📸 Requesting screenshot from API: {api_url[:100]}...")
-        
-        response = requests.get(api_url, timeout=30)
-        
-        if response.status_code == 200:
-            image_data = response.content
-            logger.info(f"✅ Screenshot captured via API: {len(image_data)} bytes")
-            print(f"✅ Screenshot API success: {len(image_data)} bytes")
-            return io.BytesIO(image_data)
-        else:
-            logger.error(f"❌ Screenshot API failed: status={response.status_code}")
-            print(f"❌ Screenshot API failed: status={response.status_code}")
-            return None
+    from urllib.parse import quote
+    import requests
+    
+    encoded_url = quote(url, safe='')
+    
+    # 試行するAPI（優先順位順）
+    apis = [
+        # API 1: screenshotapi.net（無料、登録不要、早い）
+        {
+            'name': 'screenshotapi.net',
+            'url': f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=1000",
+            'timeout': 15
+        },
+        # API 2: screenshotmachine.com（無料枠あり、簡単）
+        {
+            'name': 'screenshotmachine.com',
+            'url': f"https://api.screenshotmachine.com/?key=&url={encoded_url}&dimension={width}x{height}&device=desktop&format=png&cacheLimit=0&delay=1000",
+            'timeout': 15
+        },
+        # API 3: thumbnail.ws（無料、登録不要）
+        {
+            'name': 'thumbnail.ws',
+            'url': f"https://api.thumbnail.ws/api/{encoded_url}/viewport/{width}x{height}/fullsize",
+            'timeout': 15
+        }
+    ]
+    
+    # 各APIを試す
+    for api in apis:
+        try:
+            logger.info(f"📸 Trying {api['name']}: {api['url'][:80]}...")
+            print(f"📸 Trying {api['name']}...")
             
-    except Exception as e:
-        logger.error(f"Screenshot API error: {e}")
-        logger.error(traceback.format_exc())
-        print(f"❌ Screenshot API error: {e}")
-        return None
+            response = requests.get(api['url'], timeout=api['timeout'], headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            
+            if response.status_code == 200:
+                image_data = response.content
+                
+                # 画像が有効かチェック（最低10KB以上）
+                if len(image_data) > 10000:
+                    logger.info(f"✅ Screenshot captured via {api['name']}: {len(image_data)} bytes")
+                    print(f"✅ Screenshot success via {api['name']}: {len(image_data)} bytes")
+                    return io.BytesIO(image_data)
+                else:
+                    logger.warning(f"❌ {api['name']} returned small image: {len(image_data)} bytes (probably blank)")
+                    print(f"❌ {api['name']}: image too small")
+            else:
+                logger.warning(f"❌ {api['name']} failed: status={response.status_code}")
+                print(f"❌ {api['name']}: status {response.status_code}")
+                
+        except Exception as e:
+            logger.warning(f"❌ {api['name']} error: {e}")
+            print(f"❌ {api['name']} error: {str(e)[:50]}")
+            continue
+    
+    # すべてのAPIが失敗
+    logger.error(f"❌ All screenshot APIs failed for: {url}")
+    print(f"❌ All screenshot APIs failed")
+    return None
 
 def capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=None):
-    """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ + アクセス強化モード）
+    """❌ この関数は使用禁止です（タイムアウトのため）
     
-    Args:
-        url: スクリーンショット対象のURL
-        width: ビューポート幅
-        height: ビューポート高さ
-        firework_format: Fireworkフォーマット名（指定された場合、そのフォーマットが表示されている箇所を撮影）
+    代わりに capture_screenshot_with_api() を使用してください。
     """
+    logger.error("❌ capture_screenshot_with_playwright is DEPRECATED - use capture_screenshot_with_api instead")
+    print("❌ Playwright function called - this should not happen!")
+    return None
     try:
         from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
         
@@ -1956,12 +1988,13 @@ def capture_firework_video_thumbnail(url, width=400, height=300):
     return capture_screenshot_with_api(url, width=width, height=height)
 
 def capture_firework_video_thumbnail_with_playwright(url, width=400, height=300):
-    """
-    Firework動画のサムネイルをキャプチャする（Playwright版・非推奨）
+    """❌ この関数は使用禁止です（タイムアウトのため）
     
-    この関数は使用されていません。外部APIの方が高速で安定しています。
+    代わりに capture_firework_video_thumbnail() を使用してください（内部で外部APIを呼び出します）。
     """
-    print(f"🎬 capture_firework_video_thumbnail_with_playwright CALLED: url={url}")
+    logger.error("❌ capture_firework_video_thumbnail_with_playwright is DEPRECATED - use capture_firework_video_thumbnail instead")
+    print("❌ Playwright video thumbnail function called - this should not happen!")
+    return None
     try:
         from playwright.sync_api import sync_playwright
         
