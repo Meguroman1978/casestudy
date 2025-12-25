@@ -1295,6 +1295,110 @@ def capture_screenshot_with_api(url, width=1200, height=800):
     print(f"❌ All screenshot APIs failed")
     return None
 
+def capture_firework_element_screenshot(url, width=1200, height=800, timeout=15):
+    """
+    Playwrightを使用してFirework要素全体のスクリーンショットを撮影（短時間・要素指定）
+    
+    Args:
+        url: スクリーンショット対象のURL
+        width: ビューポート幅
+        height: ビューポート高さ
+        timeout: タイムアウト（秒）- デフォルト15秒
+        
+    Returns:
+        BytesIO object containing PNG image, or None if failed
+    """
+    print(f"🎯 capture_firework_element_screenshot CALLED: url={url}, timeout={timeout}s")
+    
+    try:
+        from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+        
+        logger.info(f"🎯 Starting Playwright for Firework element screenshot: {url}")
+        
+        with sync_playwright() as p:
+            # Chromiumブラウザを起動（最小限の設定で高速化）
+            browser = p.chromium.launch(
+                headless=True,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox'
+                ]
+            )
+            
+            context = browser.new_context(
+                viewport={'width': width, 'height': height},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            )
+            
+            page = context.new_page()
+            
+            try:
+                # ページを読み込む（短時間タイムアウト）
+                logger.info(f"Loading page with {timeout}s timeout...")
+                page.goto(url, wait_until='domcontentloaded', timeout=timeout * 1000)
+                page.wait_for_timeout(2000)  # 2秒待機してJavaScriptを実行
+                
+                # Firework要素を探す
+                selectors = [
+                    'fw-embed-feed',
+                    'fw-storyblock',
+                    'fw-video-player',
+                    '[class*="firework"]',
+                    '[id*="firework"]'
+                ]
+                
+                firework_element = None
+                for selector in selectors:
+                    try:
+                        element = page.query_selector(selector)
+                        if element:
+                            firework_element = element
+                            logger.info(f"✅ Found Firework element: {selector}")
+                            print(f"✅ Found Firework element: {selector}")
+                            break
+                    except Exception:
+                        continue
+                
+                if firework_element:
+                    # 要素までスクロール（短時間タイムアウト）
+                    try:
+                        firework_element.scroll_into_view_if_needed(timeout=5000)
+                        page.wait_for_timeout(1000)
+                    except Exception as scroll_error:
+                        logger.warning(f"Scroll failed, continuing: {scroll_error}")
+                    
+                    # 要素のスクリーンショットを撮る
+                    screenshot_bytes = firework_element.screenshot(type='png', timeout=5000)
+                    
+                    browser.close()
+                    
+                    logger.info(f"✅ Firework element screenshot captured: {len(screenshot_bytes)} bytes")
+                    print(f"✅ Firework element screenshot: {len(screenshot_bytes)} bytes")
+                    return io.BytesIO(screenshot_bytes)
+                else:
+                    logger.warning("❌ No Firework elements found on page")
+                    print("❌ No Firework elements found")
+                    browser.close()
+                    return None
+                    
+            except PlaywrightTimeoutError as timeout_error:
+                logger.warning(f"⏱️ Playwright timeout: {timeout_error}")
+                print(f"⏱️ Playwright timeout")
+                browser.close()
+                return None
+                
+            except Exception as page_error:
+                logger.warning(f"❌ Page error: {page_error}")
+                print(f"❌ Page error: {str(page_error)[:80]}")
+                browser.close()
+                return None
+                
+    except Exception as e:
+        logger.error(f"❌ Playwright error: {e}")
+        print(f"❌ Playwright error: {str(e)[:80]}")
+        return None
+
 def capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=None):
     """❌ この関数は使用禁止です（タイムアウトのため）
     
@@ -2714,9 +2818,18 @@ def create_pptx():
         if url:
             try:
                 logger.info(f"Generating screenshot for URL: {url}")
-                print(f"📸📸📸 Calling screenshot API for: {url}")
-                # 外部APIを使用（Playwrightは遅すぎてタイムアウトするため）
-                img_data = capture_screenshot_with_api(url, width=1200, height=800)
+                print(f"📸📸📸 Starting screenshot capture for {Insert Screenshot here}...")
+                
+                # 戦略1: PlaywrightでFirework要素全体のスクリーンショットを試す（15秒タイムアウト）
+                logger.info("Strategy 1: Trying Playwright for Firework element screenshot...")
+                print("🎯 Strategy 1: Playwright (Firework element)...")
+                img_data = capture_firework_element_screenshot(url, width=1200, height=800, timeout=15)
+                
+                # 戦略2: Playwrightが失敗した場合、外部APIでページ全体のスクリーンショット
+                if not img_data:
+                    logger.info("Strategy 2: Falling back to external API for full page screenshot...")
+                    print("🌐 Strategy 2: External API (full page)...")
+                    img_data = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if img_data:
                     # 画像サイズをチェック（白い画像を検出）
