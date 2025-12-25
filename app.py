@@ -2831,12 +2831,15 @@ def create_pptx():
                     img_data.seek(0)
                     img_size = len(img_data.getvalue())
                     logger.info(f"Screenshot image size: {img_size} bytes")
+                    print(f"📊 Screenshot size: {img_size} bytes")
                     
                     # 10KB未満の画像は白い画像とみなす
                     if img_size < 10000:
                         logger.warning(f"⚠️ Screenshot is too small ({img_size} bytes), likely a blank image. Will use HTML file instead.")
+                        print(f"⚠️ Image too small: {img_size} bytes (threshold: 10000 bytes)")
                         img_data = None  # HTMLファイル保存に進む
                     else:
+                        print(f"✅ Image size OK: {img_size} bytes, proceeding with insertion...")
                         img = Image.open(img_data)
                         
                         # 画像を挿入する位置を探す
@@ -2855,9 +2858,11 @@ def create_pptx():
                                 slide.shapes.add_picture(img_data, left, top, width=width, height=height)
                                 screenshot_inserted = True
                                 logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes)")
+                                print(f"✅✅✅ Screenshot inserted into {{Insert Screenshot here}} successfully!")
                                 break
                 else:
-                    logger.warning(f"Playwright screenshot failed - no image data returned")
+                    logger.warning(f"External API screenshot failed - no image data returned")
+                    print(f"❌ External API returned no image data for {{Insert Screenshot here}}")
             except Exception as e:
                 logger.warning(f"スクリーンショット取得失敗: {e}")
                 logger.warning(traceback.format_exc())
