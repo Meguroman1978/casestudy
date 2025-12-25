@@ -1035,23 +1035,24 @@ def save_complete_html_page(url, output_path):
             )
             page = context.new_page()
             
-            # ページに移動（networkidleを使用してすべてのリソースが読み込まれるまで待つ）
+            # ページに移動（最も緩い条件から試す）
             try:
-                logger.info("Loading page with networkidle wait...")
-                page.goto(url, wait_until='networkidle', timeout=30000)
-                logger.info("✅ Page loaded with networkidle")
+                logger.info("Loading page with domcontentloaded wait...")
+                page.goto(url, wait_until='domcontentloaded', timeout=10000)
+                logger.info("✅ Page loaded with domcontentloaded")
+                # 追加の待機時間でJavaScriptが完全に実行されるのを待つ
+                page.wait_for_timeout(3000)
             except Exception as e:
-                logger.warning(f"networkidle failed, falling back to load: {e}")
+                logger.warning(f"domcontentloaded failed, falling back to load: {e}")
                 try:
-                    page.goto(url, wait_until='load', timeout=20000)
+                    page.goto(url, wait_until='load', timeout=15000)
                     logger.info("✅ Page loaded with load event")
+                    page.wait_for_timeout(3000)
                 except Exception as e2:
-                    logger.warning(f"load failed, falling back to domcontentloaded: {e2}")
-                    page.goto(url, wait_until='domcontentloaded', timeout=20000)
-                    logger.info("✅ Page loaded with domcontentloaded")
-            
-            # 追加の待機時間でJavaScriptが完全に実行されるのを待つ
-            page.wait_for_timeout(5000)
+                    logger.warning(f"load failed, falling back to commit: {e2}")
+                    page.goto(url, wait_until='commit', timeout=10000)
+                    logger.info("✅ Page loaded with commit")
+                    page.wait_for_timeout(5000)  # commitの場合は長めに待機
             
             # 🎨 リッチなHTMLコンテンツを取得（より包括的なスタイル保存）
             complete_html = page.evaluate("""
@@ -1933,10 +1934,32 @@ def capture_firework_video_thumbnail(url, width=400, height=300):
             page = context.new_page()
             
             try:
-                # ページを読み込む
+                # ページを読み込む（複数の戦略を試す）
                 logger.info(f"Loading page: {url}")
-                page.goto(url, wait_until='networkidle', timeout=30000)
-                page.wait_for_timeout(3000)  # 3秒待機
+                
+                # 戦略1: domcontentloaded（最速）
+                try:
+                    logger.info("Strategy 1: Trying domcontentloaded...")
+                    page.goto(url, wait_until='domcontentloaded', timeout=10000)
+                    page.wait_for_timeout(2000)  # 2秒待機してJavaScriptを実行させる
+                    logger.info("✅ Strategy 1 succeeded")
+                except Exception as e1:
+                    logger.warning(f"Strategy 1 failed: {e1}")
+                    
+                    # 戦略2: load
+                    try:
+                        logger.info("Strategy 2: Trying load...")
+                        page.goto(url, wait_until='load', timeout=15000)
+                        page.wait_for_timeout(2000)
+                        logger.info("✅ Strategy 2 succeeded")
+                    except Exception as e2:
+                        logger.warning(f"Strategy 2 failed: {e2}")
+                        
+                        # 戦略3: commit（最も緩い）
+                        logger.info("Strategy 3: Trying commit (most lenient)...")
+                        page.goto(url, wait_until='commit', timeout=10000)
+                        page.wait_for_timeout(3000)
+                        logger.info("✅ Strategy 3 succeeded")
                 
                 # Firework要素を探す
                 # fw-embed-feed, fw-storyblock, fw-video-player などを検索
@@ -2194,11 +2217,20 @@ def crawl_and_analyze_website(url, language='ja'):
             page = context.new_page()
             
             try:
-                # ページを読み込む（タイムアウト30秒）
-                page.goto(url, wait_until='networkidle', timeout=30000)
-                
-                # 少し待機してJavaScriptが完全に実行されるのを待つ
-                page.wait_for_timeout(2000)
+                # ページを読み込む（複数の戦略を試す）
+                try:
+                    logger.info("Trying domcontentloaded for website analysis...")
+                    page.goto(url, wait_until='domcontentloaded', timeout=10000)
+                    page.wait_for_timeout(2000)
+                except Exception:
+                    logger.warning("domcontentloaded failed, trying load...")
+                    try:
+                        page.goto(url, wait_until='load', timeout=15000)
+                        page.wait_for_timeout(2000)
+                    except Exception:
+                        logger.warning("load failed, trying commit...")
+                        page.goto(url, wait_until='commit', timeout=10000)
+                        page.wait_for_timeout(3000)
                 
                 # ページのHTMLコンテンツを取得
                 html_content = page.content()
