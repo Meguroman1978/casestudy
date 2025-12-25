@@ -2820,16 +2820,10 @@ def create_pptx():
                 logger.info(f"Generating screenshot for URL: {url}")
                 print("📸📸📸 Starting screenshot capture for {Insert Screenshot here}...")
                 
-                # 戦略1: PlaywrightでFirework要素全体のスクリーンショットを試す（15秒タイムアウト）
-                logger.info("Strategy 1: Trying Playwright for Firework element screenshot...")
-                print("🎯 Strategy 1: Playwright (Firework element)...")
-                img_data = capture_firework_element_screenshot(url, width=1200, height=800, timeout=15)
-                
-                # 戦略2: Playwrightが失敗した場合、外部APIでページ全体のスクリーンショット
-                if not img_data:
-                    logger.info("Strategy 2: Falling back to external API for full page screenshot...")
-                    print("🌐 Strategy 2: External API (full page)...")
-                    img_data = capture_screenshot_with_api(url, width=1200, height=800)
+                # {Insert Screenshot here}: ページ全体のスクリーンショット（外部API使用）
+                logger.info("Capturing full page screenshot with external API...")
+                print("🌐 Capturing full page screenshot (external API)...")
+                img_data = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if img_data:
                     # 画像サイズをチェック（白い画像を検出）
@@ -2913,14 +2907,23 @@ def create_pptx():
                             shape.text = fallback_screenshot
                         break
         
-        # Firework動画のサムネイルをキャプチャして挿入
-        logger.info("🎬 Starting Firework video thumbnail capture and insertion...")
-        print("🎬🎬🎬 Starting Firework video thumbnail capture...")
+        # Firework動画エリアのスクリーンショットをキャプチャして挿入（横長に対応）
+        logger.info("🎬 Starting Firework video area screenshot capture and insertion...")
+        print("🎬🎬🎬 Starting Firework video area screenshot capture...")
         
         video_thumbnail_inserted = False
         if url:
             try:
-                video_thumbnail_io = capture_firework_video_thumbnail(url, width=400, height=300)
+                # {Insert Video here}: PlaywrightでFirework要素全体のスクリーンショット（横長）
+                logger.info("Capturing Firework element screenshot with Playwright...")
+                print("🎯 Capturing Firework element screenshot (Playwright)...")
+                video_thumbnail_io = capture_firework_element_screenshot(url, width=1200, height=800, timeout=15)
+                
+                # フォールバック: Playwrightが失敗した場合、外部APIでページ全体のスクリーンショット
+                if not video_thumbnail_io:
+                    logger.warning("⚠️ Playwright failed, falling back to external API...")
+                    print("⚠️ Playwright failed, using external API fallback...")
+                    video_thumbnail_io = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if video_thumbnail_io:
                     logger.info("✅ Firework video thumbnail captured successfully")
