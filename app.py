@@ -2008,7 +2008,7 @@ def capture_screenshot_with_playwright(url, width=1200, height=800, firework_for
 
 def capture_firework_video_thumbnail(url, width=400, height=300):
     """
-    Firework動画のサムネイルをキャプチャする（外部API使用）
+    Firework動画の個別サムネイルを取得（HTMLからFirework要素を検出）
     
     Args:
         url: ページURL
@@ -2019,10 +2019,96 @@ def capture_firework_video_thumbnail(url, width=400, height=300):
         BytesIO object containing PNG image, or None if failed
     """
     print(f"🎬 capture_firework_video_thumbnail CALLED: url={url}")
+    logger.info(f"🎬 Attempting to extract Firework video thumbnail from HTML")
     
-    # 外部APIを使用（Playwrightは遅すぎるため）
-    logger.info(f"🎬 Using external API for video thumbnail capture")
-    return capture_screenshot_with_api(url, width=width, height=height)
+    try:
+        from bs4 import BeautifulSoup
+        import requests
+        
+        # HTMLを取得
+        response = requests.get(url, timeout=10, headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        
+        if response.status_code != 200:
+            logger.warning(f"Failed to fetch HTML: status={response.status_code}")
+            return None
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Firework要素を検索（複数のタグパターンに対応）
+        firework_selectors = [
+            'fw-storyblock',
+            'fw-video-player', 
+            'fw-embed-feed',
+            '[class*="firework"]',
+            '[id*="firework"]'
+        ]
+        
+        firework_element = None
+        for selector in firework_selectors:
+            elements = soup.select(selector)
+            if elements:
+                firework_element = elements[0]  # 最初の要素を取得
+                logger.info(f"✅ Found Firework element: {selector}")
+                print(f"✅ Found Firework element: {selector}")
+                break
+        
+        if not firework_element:
+            logger.warning("❌ No Firework elements found in HTML")
+            print("❌ No Firework elements found")
+            # フォールバック: ページ全体のスクリーンショット
+            return capture_screenshot_with_api(url, width=width, height=height)
+        
+        # サムネイル画像URLを抽出（複数のパターンを試す）
+        thumbnail_url = None
+        
+        # パターン1: poster属性
+        if firework_element.get('poster'):
+            thumbnail_url = firework_element.get('poster')
+            logger.info(f"Found thumbnail via poster: {thumbnail_url}")
+        
+        # パターン2: data-video-url属性
+        elif firework_element.get('data-video-url'):
+            thumbnail_url = firework_element.get('data-video-url')
+            logger.info(f"Found thumbnail via data-video-url: {thumbnail_url}")
+        
+        # パターン3: img要素を探す
+        elif firework_element.find('img'):
+            img = firework_element.find('img')
+            thumbnail_url = img.get('src') or img.get('data-src')
+            logger.info(f"Found thumbnail via img tag: {thumbnail_url}")
+        
+        # サムネイルURLが見つかった場合、画像を直接ダウンロード
+        if thumbnail_url:
+            # 相対URLを絶対URLに変換
+            from urllib.parse import urljoin
+            thumbnail_url = urljoin(url, thumbnail_url)
+            
+            logger.info(f"📥 Downloading Firework thumbnail: {thumbnail_url}")
+            print(f"📥 Downloading thumbnail: {thumbnail_url[:80]}...")
+            
+            img_response = requests.get(thumbnail_url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            
+            if img_response.status_code == 200 and len(img_response.content) > 1000:
+                logger.info(f"✅ Firework thumbnail downloaded: {len(img_response.content)} bytes")
+                print(f"✅ Thumbnail downloaded: {len(img_response.content)} bytes")
+                return io.BytesIO(img_response.content)
+            else:
+                logger.warning(f"❌ Failed to download thumbnail: status={img_response.status_code}")
+        
+        # すべて失敗した場合、ページ全体のスクリーンショットにフォールバック
+        logger.warning("⚠️ No valid thumbnail found, falling back to full page screenshot")
+        print("⚠️ Falling back to full page screenshot")
+        return capture_screenshot_with_api(url, width=width, height=height)
+        
+    except Exception as e:
+        logger.error(f"Firework thumbnail extraction error: {e}")
+        print(f"❌ Thumbnail extraction error: {str(e)[:80]}")
+        # エラー時はページ全体のスクリーンショットにフォールバック
+        return capture_screenshot_with_api(url, width=width, height=height)
 
 def capture_firework_video_thumbnail_with_playwright(url, width=400, height=300):
     """❌ この関数は使用禁止です（タイムアウトのため）
