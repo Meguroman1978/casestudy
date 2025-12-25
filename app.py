@@ -1203,23 +1203,30 @@ def capture_screenshot_with_api(url, width=1200, height=800):
     
     # 試行するAPI（優先順位順）
     apis = [
-        # API 1: screenshotapi.net（無料、登録不要、早い）
+        # API 1: apiflash.com（無料枠あり、高品質）
+        {
+            'name': 'apiflash.com',
+            'url': f"https://api.apiflash.com/v1/urltoimage?access_key=&url={encoded_url}&width={width}&height={height}&response_type=image&fresh=true&wait_until=page_loaded",
+            'timeout': 20
+        },
+        # API 2: screenshotone.com（無料試用、高品質）
+        {
+            'name': 'screenshotone.com', 
+            'url': f"https://api.screenshotone.com/take?access_key=&url={encoded_url}&viewport_width={width}&viewport_height={height}&image_quality=80&format=png&block_ads=true&delay=2",
+            'timeout': 20
+        },
+        # API 3: screenshotapi.net（無料、登録不要）
         {
             'name': 'screenshotapi.net',
-            'url': f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=1000",
-            'timeout': 15
+            'url': f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=2000&full_page=false",
+            'timeout': 20
         },
-        # API 2: screenshotmachine.com（無料枠あり、簡単）
+        # API 4: Google PageSpeed Insights（無料、安定、ただしBase64デコードが必要）
         {
-            'name': 'screenshotmachine.com',
-            'url': f"https://api.screenshotmachine.com/?key=&url={encoded_url}&dimension={width}x{height}&device=desktop&format=png&cacheLimit=0&delay=1000",
-            'timeout': 15
-        },
-        # API 3: thumbnail.ws（無料、登録不要）
-        {
-            'name': 'thumbnail.ws',
-            'url': f"https://api.thumbnail.ws/api/{encoded_url}/viewport/{width}x{height}/fullsize",
-            'timeout': 15
+            'name': 'pagespeed.google',
+            'url': f"https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={encoded_url}&screenshot=true",
+            'timeout': 30,
+            'extract_screenshot': True  # 特別処理が必要
         }
     ]
     
@@ -1233,8 +1240,33 @@ def capture_screenshot_with_api(url, width=1200, height=800):
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
             
+            logger.info(f"📸 {api['name']} response: status={response.status_code}, content_type={response.headers.get('content-type', 'unknown')}, size={len(response.content)} bytes")
+            print(f"📸 {api['name']}: status={response.status_code}, size={len(response.content)} bytes")
+            
             if response.status_code == 200:
-                image_data = response.content
+                # Google PageSpeed API の特別処理
+                if api.get('extract_screenshot'):
+                    try:
+                        import base64
+                        data = response.json()
+                        screenshot_data = data.get('lighthouseResult', {}).get('audits', {}).get('final-screenshot', {}).get('details', {}).get('data', '')
+                        
+                        if screenshot_data and screenshot_data.startswith('data:image'):
+                            # data:image/jpeg;base64,... から base64 部分を抽出
+                            base64_str = screenshot_data.split(',')[1]
+                            image_data = base64.b64decode(base64_str)
+                            logger.info(f"✅ Extracted screenshot from PageSpeed: {len(image_data)} bytes")
+                            print(f"✅ PageSpeed screenshot extracted: {len(image_data)} bytes")
+                        else:
+                            logger.warning(f"❌ PageSpeed: no screenshot data found")
+                            print(f"❌ PageSpeed: no screenshot data")
+                            continue
+                    except Exception as extract_error:
+                        logger.warning(f"❌ PageSpeed extraction error: {extract_error}")
+                        print(f"❌ PageSpeed extraction failed")
+                        continue
+                else:
+                    image_data = response.content
                 
                 # 画像が有効かチェック（最低10KB以上）
                 if len(image_data) > 10000:
@@ -1243,14 +1275,16 @@ def capture_screenshot_with_api(url, width=1200, height=800):
                     return io.BytesIO(image_data)
                 else:
                     logger.warning(f"❌ {api['name']} returned small image: {len(image_data)} bytes (probably blank)")
-                    print(f"❌ {api['name']}: image too small")
+                    print(f"❌ {api['name']}: image too small ({len(image_data)} bytes)")
             else:
-                logger.warning(f"❌ {api['name']} failed: status={response.status_code}")
+                logger.warning(f"❌ {api['name']} failed: status={response.status_code}, response={response.text[:200]}")
                 print(f"❌ {api['name']}: status {response.status_code}")
                 
         except Exception as e:
             logger.warning(f"❌ {api['name']} error: {e}")
-            print(f"❌ {api['name']} error: {str(e)[:50]}")
+            print(f"❌ {api['name']} error: {str(e)[:80]}")
+            import traceback
+            logger.warning(traceback.format_exc()[:500])
             continue
     
     # すべてのAPIが失敗
