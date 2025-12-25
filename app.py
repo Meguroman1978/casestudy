@@ -1201,24 +1201,27 @@ def capture_screenshot_with_api(url, width=1200, height=800):
     
     encoded_url = quote(url, safe='')
     
+    # Screenshot Machine API Key（環境変数から取得、なければ空文字列）
+    screenshot_api_key = os.environ.get('SCREENSHOT_API_KEY', 'ac10e6')
+    
     # 試行するAPI（優先順位順）
     apis = [
-        # API 1: apiflash.com（無料枠あり、高品質）
+        # API 1: screenshotmachine.com（API KEY: ac10e6）
         {
-            'name': 'apiflash.com',
-            'url': f"https://api.apiflash.com/v1/urltoimage?access_key=&url={encoded_url}&width={width}&height={height}&response_type=image&fresh=true&wait_until=page_loaded",
+            'name': 'screenshotmachine.com',
+            'url': f"https://api.screenshotmachine.com/?key={screenshot_api_key}&url={encoded_url}&dimension={width}x{height}&device=desktop&format=png&cacheLimit=0&delay=1000",
             'timeout': 20
         },
-        # API 2: screenshotone.com（無料試用、高品質）
-        {
-            'name': 'screenshotone.com', 
-            'url': f"https://api.screenshotone.com/take?access_key=&url={encoded_url}&viewport_width={width}&viewport_height={height}&image_quality=80&format=png&block_ads=true&delay=2",
-            'timeout': 20
-        },
-        # API 3: screenshotapi.net（無料、登録不要）
+        # API 2: screenshotapi.net（無料、登録不要）
         {
             'name': 'screenshotapi.net',
             'url': f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=2000&full_page=false",
+            'timeout': 20
+        },
+        # API 3: thumbnail.ws（無料、登録不要、シンプル）
+        {
+            'name': 'thumbnail.ws',
+            'url': f"https://api.thumbnail.ws/api/{encoded_url}/viewport/{width}x{height}/fullsize",
             'timeout': 20
         },
         # API 4: Google PageSpeed Insights（無料、安定、ただしBase64デコードが必要）
