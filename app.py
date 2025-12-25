@@ -1183,6 +1183,48 @@ def save_complete_html_page(url, output_path):
         logger.error(traceback.format_exc())
         return False
 
+def capture_screenshot_with_api(url, width=1200, height=800):
+    """
+    外部APIを使用してスクリーンショットを撮影（高速・安定）
+    
+    Args:
+        url: スクリーンショット対象のURL
+        width: 画像幅
+        height: 画像高さ
+        
+    Returns:
+        BytesIO object containing PNG image, or None if failed
+    """
+    print(f"📸 capture_screenshot_with_api CALLED: url={url}")
+    try:
+        from urllib.parse import quote
+        import requests
+        
+        encoded_url = quote(url, safe='')
+        
+        # screenshotapi.net を使用（無料、登録不要）
+        api_url = f"https://shot.screenshotapi.net/screenshot?url={encoded_url}&width={width}&height={height}&output=image&file_type=png&wait_for_event=load&delay=2000"
+        
+        logger.info(f"📸 Requesting screenshot from API: {api_url[:100]}...")
+        
+        response = requests.get(api_url, timeout=30)
+        
+        if response.status_code == 200:
+            image_data = response.content
+            logger.info(f"✅ Screenshot captured via API: {len(image_data)} bytes")
+            print(f"✅ Screenshot API success: {len(image_data)} bytes")
+            return io.BytesIO(image_data)
+        else:
+            logger.error(f"❌ Screenshot API failed: status={response.status_code}")
+            print(f"❌ Screenshot API failed: status={response.status_code}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Screenshot API error: {e}")
+        logger.error(traceback.format_exc())
+        print(f"❌ Screenshot API error: {e}")
+        return None
+
 def capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=None):
     """Playwrightを使用してスクリーンショットを撮影（複数の戦略でリトライ + アクセス強化モード）
     
@@ -1897,7 +1939,7 @@ def capture_screenshot_with_playwright(url, width=1200, height=800, firework_for
 
 def capture_firework_video_thumbnail(url, width=400, height=300):
     """
-    Firework動画のサムネイルをキャプチャする
+    Firework動画のサムネイルをキャプチャする（外部API使用）
     
     Args:
         url: ページURL
@@ -1908,6 +1950,18 @@ def capture_firework_video_thumbnail(url, width=400, height=300):
         BytesIO object containing PNG image, or None if failed
     """
     print(f"🎬 capture_firework_video_thumbnail CALLED: url={url}")
+    
+    # 外部APIを使用（Playwrightは遅すぎるため）
+    logger.info(f"🎬 Using external API for video thumbnail capture")
+    return capture_screenshot_with_api(url, width=width, height=height)
+
+def capture_firework_video_thumbnail_with_playwright(url, width=400, height=300):
+    """
+    Firework動画のサムネイルをキャプチャする（Playwright版・非推奨）
+    
+    この関数は使用されていません。外部APIの方が高速で安定しています。
+    """
+    print(f"🎬 capture_firework_video_thumbnail_with_playwright CALLED: url={url}")
     try:
         from playwright.sync_api import sync_playwright
         
@@ -2196,55 +2250,37 @@ Firework動画周辺のコンテキスト:
         return fallback
 
 def crawl_and_analyze_website(url, language='ja'):
-    """Playwrightを使用してWebサイト情報を取得し、OpenAI APIで分析"""
+    """requestsとBeautifulSoupを使用してWebサイト情報を取得し、OpenAI APIで分析（高速・安定版）"""
     print(f"🌐🌐🌐 crawl_and_analyze_website CALLED: url={url}, language={language}")
     try:
-        from playwright.sync_api import sync_playwright
         from bs4 import BeautifulSoup
         
         fallback = '手動でサイト概要を入力してください' if language == 'ja' else 'Please manually enter website description here'
         
-        print(f"✅ Imports successful, starting Playwright...")
-        logger.info(f"🌐 Starting website analysis with Playwright for: {url}")
+        logger.info(f"🌐 Starting website analysis with requests for: {url}")
+        print(f"✅ Starting fast website crawling (no Playwright)...")
         
-        # Playwrightでウェブサイトをクロール（JavaScriptレンダリング対応）
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                viewport={'width': 1280, 'height': 720},
-                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            )
-            page = context.new_page()
+        # requests でウェブサイトを取得（高速・安定）
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ja,en-US;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+            }
             
-            try:
-                # ページを読み込む（複数の戦略を試す）
-                try:
-                    logger.info("Trying domcontentloaded for website analysis...")
-                    page.goto(url, wait_until='domcontentloaded', timeout=10000)
-                    page.wait_for_timeout(2000)
-                except Exception:
-                    logger.warning("domcontentloaded failed, trying load...")
-                    try:
-                        page.goto(url, wait_until='load', timeout=15000)
-                        page.wait_for_timeout(2000)
-                    except Exception:
-                        logger.warning("load failed, trying commit...")
-                        page.goto(url, wait_until='commit', timeout=10000)
-                        page.wait_for_timeout(3000)
-                
-                # ページのHTMLコンテンツを取得
-                html_content = page.content()
-                
-                browser.close()
-                
-                logger.info(f"✅ Page content loaded successfully: {len(html_content)} characters")
-                
-            except Exception as playwright_error:
-                logger.error(f"Playwright error: {playwright_error}")
-                browser.close()
-                # フォールバックとして通常のrequestsを試す
-                response = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
-                html_content = response.text
+            response = requests.get(url, timeout=10, headers=headers, allow_redirects=True)
+            response.raise_for_status()
+            html_content = response.text
+            
+            logger.info(f"✅ Page content loaded successfully: {len(html_content)} characters")
+            print(f"✅ HTML content fetched: {len(html_content)} chars")
+            
+        except Exception as request_error:
+            logger.error(f"requests error: {request_error}")
+            print(f"❌ Failed to fetch URL: {request_error}")
+            return fallback
         
         # BeautifulSoupでHTMLを解析
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -2521,8 +2557,10 @@ def create_pptx():
         
         if url:
             try:
-                logger.info(f"Generating screenshot for URL: {url} with format: {detected_format}")
-                img_data = capture_screenshot_with_playwright(url, width=1200, height=800, firework_format=detected_format)
+                logger.info(f"Generating screenshot for URL: {url}")
+                print(f"📸📸📸 Calling screenshot API for: {url}")
+                # 外部APIを使用（Playwrightは遅すぎてタイムアウトするため）
+                img_data = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if img_data:
                     # 画像サイズをチェック（白い画像を検出）
