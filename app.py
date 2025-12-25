@@ -2914,16 +2914,10 @@ def create_pptx():
         video_thumbnail_inserted = False
         if url:
             try:
-                # {Insert Video here}: PlaywrightでFirework要素全体のスクリーンショット（横長）
-                logger.info("Capturing Firework element screenshot with Playwright...")
-                print("🎯 Capturing Firework element screenshot (Playwright)...")
-                video_thumbnail_io = capture_firework_element_screenshot(url, width=1200, height=800, timeout=15)
-                
-                # フォールバック: Playwrightが失敗した場合、外部APIでページ全体のスクリーンショット
-                if not video_thumbnail_io:
-                    logger.warning("⚠️ Playwright failed, falling back to external API...")
-                    print("⚠️ Playwright failed, using external API fallback...")
-                    video_thumbnail_io = capture_screenshot_with_api(url, width=1200, height=800)
+                # {Insert Video here}: 外部APIでページ全体のスクリーンショット（高速・安定）
+                logger.info("Capturing page screenshot with external API (fast)...")
+                print("🌐 Capturing page screenshot with external API (fast)...")
+                video_thumbnail_io = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if video_thumbnail_io:
                     logger.info("✅ Firework video thumbnail captured successfully")
