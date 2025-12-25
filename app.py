@@ -367,7 +367,8 @@ def group_by_domain_and_paginate(result_df, page=1, page_size=5):
             agg_dict['VIDEO_VIEWS'] = 'sum'
         
         # オプションの指標カラムがある場合は集計に含める
-        optional_metric_cols = ['VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE', 
+        # 注: VIEWTHROUGH_RATEは削除（視聴完了率100%UU率と重複するため）
+        optional_metric_cols = ['CLICKTHROUGH_RATE', 'A2C_RATE', 
                                'COMPLETION_RATE_25P', 'COMPLETION_RATE_50P', 
                                'COMPLETION_RATE_75P', 'COMPLETION_RATE_100P']
         for col in optional_metric_cols:
@@ -846,7 +847,8 @@ def process_data():
             desired_order.append('URL')
         
         # 指標カラムを追加（存在する場合のみ）
-        metric_columns = ['VIDEO_VIEWS', 'VIEWTHROUGH_RATE', 'CLICKTHROUGH_RATE', 'A2C_RATE',
+        # 注: VIEWTHROUGH_RATEは削除（視聴完了率100%UU率と重複するため）
+        metric_columns = ['VIDEO_VIEWS', 'CLICKTHROUGH_RATE', 'A2C_RATE',
                          'COMPLETION_RATE_25P', 'COMPLETION_RATE_50P', 
                          'COMPLETION_RATE_75P', 'COMPLETION_RATE_100P']
         for col in metric_columns:
@@ -2628,8 +2630,7 @@ def create_pptx():
         language = data.get('language', 'ja')
         print(f"📝 Parsed: channel={channel_name}, industry={industry}, country={country}, url={url}, lang={language}")
         
-        # 新しい指標を取得
-        view_through_uu_rate_raw = data.get('view_through_uu_rate', 'N/A')
+        # 新しい指標を取得（View-Through UU Rateは削除）
         cta_click_uu_rate_raw = data.get('cta_click_uu_rate', 'N/A')
         completion_50_uu_rate_raw = data.get('completion_50_uu_rate', 'N/A')
         
@@ -2646,16 +2647,15 @@ def create_pptx():
             except (ValueError, TypeError):
                 return 'N/A'
         
-        view_through_uu_rate = format_as_percentage(view_through_uu_rate_raw)
         cta_click_uu_rate = format_as_percentage(cta_click_uu_rate_raw)
         completion_50_uu_rate = format_as_percentage(completion_50_uu_rate_raw)
         
-        print(f"✅ Percentage formatting complete: view_through={view_through_uu_rate}, cta_click={cta_click_uu_rate}, completion_50={completion_50_uu_rate}")
+        print(f"✅ Percentage formatting complete: cta_click={cta_click_uu_rate}, completion_50={completion_50_uu_rate}")
         
         logger.info(f"PPTX生成開始: Channel={channel_name}, 言語: {language}")
         logger.info(f"受信データ: channel_name={channel_name}, industry={industry}, country={country}, url={url}, format={data.get('format', 'NOT_PROVIDED')}")
-        logger.info(f"指標データ(raw): View-Through UU Rate={view_through_uu_rate_raw}, CTA Click UU Rate={cta_click_uu_rate_raw}, 50% Completion UU Rate={completion_50_uu_rate_raw}")
-        logger.info(f"指標データ(formatted): View-Through UU Rate={view_through_uu_rate}, CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
+        logger.info(f"指標データ(raw): CTA Click UU Rate={cta_click_uu_rate_raw}, 50% Completion UU Rate={completion_50_uu_rate_raw}")
+        logger.info(f"指標データ(formatted): CTA Click UU Rate={cta_click_uu_rate}, 50% Completion UU Rate={completion_50_uu_rate}")
         
         # ウェブサイト情報を抽出
         website_info = extract_website_info(url)
@@ -2732,7 +2732,6 @@ def create_pptx():
             '{Website description}': website_description_enhanced,
             '{Why firework?}': why_firework_text,
             '{Format}': detected_format,  # フォーマットを追加
-            '{View-Through UU Rate}': view_through_uu_rate,  # パーセント表示済み
             '{CTA Click UU Rate}': cta_click_uu_rate,  # パーセント表示済み
             '{50% Completion UU Rate}': completion_50_uu_rate  # パーセント表示済み
         }
@@ -2851,6 +2850,8 @@ def create_pptx():
                             if hasattr(shape, "text") and '{Insert Screenshot here}' in shape.text:
                                 left = shape.left
                                 top = shape.top
+                                width = shape.width
+                                height = shape.height
                                 
                                 # プレースホルダーを削除
                                 sp = shape.element
@@ -2859,11 +2860,11 @@ def create_pptx():
                                 # BytesIOを再度シーク（重要！）
                                 img_data.seek(0)
                                 
-                                # 画像のオリジナルサイズを優先（widthとheightを指定しない）
-                                slide.shapes.add_picture(img_data, left, top)
+                                # 画像を枠のサイズに合わせて挿入
+                                slide.shapes.add_picture(img_data, left, top, width=width, height=height)
                                 screenshot_inserted = True
-                                logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes) at ({left}, {top}) with original size {img.width}x{img.height}")
-                                print(f"✅✅✅ Screenshot inserted into {{Insert Screenshot here}} successfully! Size: {img.width}x{img.height}")
+                                logger.info(f"✅ Screenshot inserted successfully ({img_size} bytes) at ({left}, {top}) with frame size {width}x{height}")
+                                print(f"✅✅✅ Screenshot inserted into {{Insert Screenshot here}} successfully! Fitted to frame: {width}x{height}")
                                 break
                 else:
                     logger.warning(f"External API screenshot failed - no image data returned")

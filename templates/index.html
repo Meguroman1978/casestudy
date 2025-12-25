@@ -301,8 +301,6 @@
                             <option value="none" data-lang-key="sort_none">並び替えなし</option>
                             <option value="VIDEO_VIEWS_desc" data-lang-key="sort_views_desc">3秒以上再生UU数（高→低）</option>
                             <option value="VIDEO_VIEWS_asc" data-lang-key="sort_views_asc">3秒以上再生UU数（低→高）</option>
-                            <option value="VIEWTHROUGH_RATE_desc" data-lang-key="sort_vtr_desc">ビュースルーUU率（高→低）</option>
-                            <option value="VIEWTHROUGH_RATE_asc" data-lang-key="sort_vtr_asc">ビュースルーUU率（低→高）</option>
                             <option value="CLICKTHROUGH_RATE_desc" data-lang-key="sort_ctr_desc">CTAクリックUU率（高→低）</option>
                             <option value="CLICKTHROUGH_RATE_asc" data-lang-key="sort_ctr_asc">CTAクリックUU率（低→高）</option>
                             <option value="A2C_RATE_desc" data-lang-key="sort_a2c_desc">カート追加UU率（高→低）</option>
@@ -393,8 +391,6 @@
             sort_none: { ja: '並び替えなし', en: 'No sorting' },
             sort_views_desc: { ja: '3秒以上再生UU数（高→低）', en: '3s+ Video Views UU (High→Low)' },
             sort_views_asc: { ja: '3秒以上再生UU数（低→高）', en: '3s+ Video Views UU (Low→High)' },
-            sort_vtr_desc: { ja: 'ビュースルーUU率（高→低）', en: 'View-Through UU Rate (High→Low)' },
-            sort_vtr_asc: { ja: 'ビュースルーUU率（低→高）', en: 'View-Through UU Rate (Low→High)' },
             sort_ctr_desc: { ja: 'CTAクリックUU率（高→低）', en: 'CTA Click UU Rate (High→Low)' },
             sort_ctr_asc: { ja: 'CTAクリックUU率（低→高）', en: 'CTA Click UU Rate (Low→High)' },
             sort_a2c_desc: { ja: 'カート追加UU率（高→低）', en: 'Add-to-Cart UU Rate (High→Low)' },
@@ -979,7 +975,7 @@
                             'フォーマット': 'Format',
                             'URL': 'URL',
                             'VIDEO_VIEWS': '3s+ Video Views UU',
-                            'VIEWTHROUGH_RATE': 'View-Through UU Rate',
+
                             'CLICKTHROUGH_RATE': 'CTA Click UU Rate',
                             'A2C_RATE': 'Add-to-Cart UU Rate',
                             'COMPLETION_RATE_25P': '25% Completion UU Rate',
@@ -1259,7 +1255,7 @@
                 'フォーマット': currentLanguage === 'ja' ? 'フォーマット' : 'Format',
                 'URL': 'URL',
                 'VIDEO_VIEWS': currentLanguage === 'ja' ? '3秒以上再生UU数' : '3s+ Video Views UU',
-                'VIEWTHROUGH_RATE': currentLanguage === 'ja' ? 'ビュースルーUU率' : 'View-Through UU Rate',
+
                 'CLICKTHROUGH_RATE': currentLanguage === 'ja' ? 'CTAクリックUU率' : 'CTA Click UU Rate',
                 'A2C_RATE': currentLanguage === 'ja' ? 'カート追加UU率' : 'Add-to-Cart UU Rate',
                 'COMPLETION_RATE_25P': currentLanguage === 'ja' ? '視聴完了率25%UU率' : '25% Completion UU Rate',
@@ -1281,10 +1277,7 @@
             
             // 各指標の定義と計算式（ツールチップ用）
             const metricTooltips = {
-                'VIEWTHROUGH_RATE': {
-                    ja: 'ビュースルーUU率: 動画を最後まで視聴したユニークユーザーの割合\n計算式: (最後まで視聴したUU数 / 動画再生開始UU数) × 100',
-                    en: 'View-Through UU Rate: Percentage of unique users who watched the video to completion\nFormula: (Completed UU / Started UU) × 100'
-                },
+
                 'CLICKTHROUGH_RATE': {
                     ja: 'CTAクリックUU率: CTAボタンをクリックしたユニークユーザーの割合\n計算式: (CTAクリックUU数 / 動画再生開始UU数) × 100',
                     en: 'CTA Click UU Rate: Percentage of unique users who clicked the CTA button\nFormula: (CTA Click UU / Started UU) × 100'
@@ -1523,7 +1516,7 @@
                         format: rowData['フォーマット'] || rowData['Format'] || 'Unknown',  // フォーマットを追加
                         language: currentLanguage,
                         // 新しい指標を追加
-                        view_through_uu_rate: rowData['VIEWTHROUGH_RATE'] || rowData['View-Through UU Rate'] || 'N/A',
+
                         cta_click_uu_rate: rowData['CLICKTHROUGH_RATE'] || rowData['CTA Click UU Rate'] || 'N/A',
                         completion_50_uu_rate: rowData['COMPLETION_RATE_50P'] || rowData['50% Completion UU Rate'] || 'N/A'
                     })
