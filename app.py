@@ -2820,9 +2820,10 @@ def create_pptx():
                 logger.info(f"Generating screenshot for URL: {url}")
                 print("📸📸📸 Starting screenshot capture for {Insert Screenshot here}...")
                 
-                # {Insert Screenshot here}: ページ全体のスクリーンショット（外部API使用）
-                logger.info("Capturing full page screenshot with external API...")
-                print("🌐 Capturing full page screenshot (external API)...")
+                # {Insert Screenshot here}: ページ上部のスクリーンショット（外部API使用）
+                logger.info("Capturing top portion of page with external API...")
+                print("🌐 Capturing top portion of page (external API)...")
+                # 上部800pxのスクリーンショットを取得
                 img_data = capture_screenshot_with_api(url, width=1200, height=800)
                 
                 if img_data:
@@ -2914,10 +2915,52 @@ def create_pptx():
         video_thumbnail_inserted = False
         if url:
             try:
-                # {Insert Video here}: 外部APIでページ全体のスクリーンショット（高速・安定）
-                logger.info("Capturing page screenshot with external API (fast)...")
-                print("🌐 Capturing page screenshot with external API (fast)...")
-                video_thumbnail_io = capture_screenshot_with_api(url, width=1200, height=800)
+                # {Insert Video here}: ページの中央・下部のスクリーンショット（高速・安定）
+                logger.info("Capturing middle/lower portion of page with external API...")
+                print("🌐 Capturing middle/lower portion of page (external API)...")
+                # より長いページを撮影して、中央・下部を切り出す
+                full_page_img_data = capture_screenshot_with_api(url, width=1200, height=2400)
+                
+                if full_page_img_data:
+                    # 画像を開いて中央・下部を切り出し（800px下からスタート）
+                    try:
+                        from PIL import Image
+                        full_page_img_data.seek(0)
+                        full_img = Image.open(full_page_img_data)
+                        
+                        # 画像の高さを確認
+                        img_height = full_img.height
+                        logger.info(f"Full page image height: {img_height}px")
+                        
+                        # 中央・下部を切り出し（上から800px〜1600px、または適応的に調整）
+                        if img_height > 1600:
+                            # 上から800pxスキップして、そこから800px分を切り出し
+                            crop_top = 800
+                            crop_bottom = min(1600, img_height)
+                        elif img_height > 800:
+                            # 画像が短い場合、上部をスキップして残りを切り出し
+                            crop_top = min(400, img_height // 2)
+                            crop_bottom = img_height
+                        else:
+                            # 画像が非常に短い場合、そのまま使用
+                            crop_top = 0
+                            crop_bottom = img_height
+                        
+                        cropped_img = full_img.crop((0, crop_top, full_img.width, crop_bottom))
+                        
+                        # BytesIOに保存
+                        video_thumbnail_io = io.BytesIO()
+                        cropped_img.save(video_thumbnail_io, format='PNG')
+                        video_thumbnail_io.seek(0)
+                        
+                        logger.info(f"✅ Cropped image: {crop_top}px to {crop_bottom}px (height: {crop_bottom - crop_top}px)")
+                        print(f"✅ Cropped middle/lower portion: {crop_top}px to {crop_bottom}px")
+                    except Exception as crop_error:
+                        logger.error(f"Failed to crop image: {crop_error}")
+                        print(f"❌ Crop failed, using full image")
+                        video_thumbnail_io = full_page_img_data
+                else:
+                    video_thumbnail_io = None
                 
                 if video_thumbnail_io:
                     logger.info("✅ Firework video thumbnail captured successfully")
