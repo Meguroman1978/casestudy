@@ -2818,7 +2818,7 @@ def create_pptx():
         if url:
             try:
                 logger.info(f"Generating screenshot for URL: {url}")
-                print(f"📸📸📸 Starting screenshot capture for {Insert Screenshot here}...")
+                print("📸📸📸 Starting screenshot capture for {Insert Screenshot here}...")
                 
                 # 戦略1: PlaywrightでFirework要素全体のスクリーンショットを試す（15秒タイムアウト）
                 logger.info("Strategy 1: Trying Playwright for Firework element screenshot...")
