@@ -1279,10 +1279,49 @@
                 tableHeader.appendChild(expandTh);
             }
             
+            // 各指標の定義と計算式（ツールチップ用）
+            const metricTooltips = {
+                'VIEWTHROUGH_RATE': {
+                    ja: 'ビュースルーUU率: 動画を最後まで視聴したユニークユーザーの割合\n計算式: (最後まで視聴したUU数 / 動画再生開始UU数) × 100',
+                    en: 'View-Through UU Rate: Percentage of unique users who watched the video to completion\nFormula: (Completed UU / Started UU) × 100'
+                },
+                'CLICKTHROUGH_RATE': {
+                    ja: 'CTAクリックUU率: CTAボタンをクリックしたユニークユーザーの割合\n計算式: (CTAクリックUU数 / 動画再生開始UU数) × 100',
+                    en: 'CTA Click UU Rate: Percentage of unique users who clicked the CTA button\nFormula: (CTA Click UU / Started UU) × 100'
+                },
+                'A2C_RATE': {
+                    ja: 'カート追加UU率: カートに商品を追加したユニークユーザーの割合\n計算式: (カート追加UU数 / 動画再生開始UU数) × 100',
+                    en: 'Add-to-Cart UU Rate: Percentage of unique users who added items to cart\nFormula: (Add-to-Cart UU / Started UU) × 100'
+                },
+                'COMPLETION_RATE_25P': {
+                    ja: '視聴完了率25%UU率: 動画の25%以上を視聴したユニークユーザーの割合\n計算式: (25%以上視聴UU数 / 動画再生開始UU数) × 100',
+                    en: '25% Completion UU Rate: Percentage of unique users who watched at least 25% of the video\nFormula: (25%+ Completion UU / Started UU) × 100'
+                },
+                'COMPLETION_RATE_50P': {
+                    ja: '視聴完了率50%UU率: 動画の50%以上を視聴したユニークユーザーの割合\n計算式: (50%以上視聴UU数 / 動画再生開始UU数) × 100',
+                    en: '50% Completion UU Rate: Percentage of unique users who watched at least 50% of the video\nFormula: (50%+ Completion UU / Started UU) × 100'
+                },
+                'COMPLETION_RATE_75P': {
+                    ja: '視聴完了率75%UU率: 動画の75%以上を視聴したユニークユーザーの割合\n計算式: (75%以上視聴UU数 / 動画再生開始UU数) × 100',
+                    en: '75% Completion UU Rate: Percentage of unique users who watched at least 75% of the video\nFormula: (75%+ Completion UU / Started UU) × 100'
+                },
+                'COMPLETION_RATE_100P': {
+                    ja: '視聴完了率100%UU率: 動画を100%視聴したユニークユーザーの割合\n計算式: (100%視聴UU数 / 動画再生開始UU数) × 100',
+                    en: '100% Completion UU Rate: Percentage of unique users who watched 100% of the video\nFormula: (100% Completion UU / Started UU) × 100'
+                }
+            };
+            
             data.columns.forEach(col => {
                 const th = document.createElement('th');
                 th.className = 'px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap';
                 th.textContent = columnMapping[col] || col;
+                
+                // ツールチップを追加（指標カラムの場合）
+                if (metricTooltips[col]) {
+                    th.title = metricTooltips[col][currentLanguage];
+                    th.style.cursor = 'help';
+                }
+                
                 tableHeader.appendChild(th);
             });
             
