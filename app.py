@@ -910,10 +910,16 @@ def process_data():
         
         logger.info(f"[STEP 7 完了] <fw-タグフィルター: {original_count}行 → {len(filtered_data)}行")
         
-        # 一時ファイルを削除
-        os.remove(video_path)
-        os.remove(live_path)
-        logger.info("一時ファイル削除完了")
+        # 一時ファイルを削除（アップロードされたファイルのみ）
+        try:
+            if video_path and os.path.exists(video_path):
+                os.remove(video_path)
+                logger.info("video_path削除完了")
+            if live_path and os.path.exists(live_path):
+                os.remove(live_path)
+                logger.info("live_path削除完了")
+        except Exception as cleanup_error:
+            logger.warning(f"一時ファイル削除エラー: {cleanup_error}")
         
         # 結果をJSON形式で返す
         result = {
