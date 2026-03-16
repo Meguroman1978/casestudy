@@ -606,6 +606,15 @@ def check_fw_tag_in_url(url):
         logger.info(f"Checking <fw- tag for URL: {url}")
         # タイムアウトを設定してページを取得
         response = requests.get(url, timeout=10, headers={'User-Agent': 'Mozilla/5.0'})
+        
+        # 403エラーやその他のHTTPエラーの場合は、チェックをスキップ
+        if response.status_code == 403:
+            logger.warning(f"⚠️ アクセス拒否 (403): {url} - <fw-タグチェックをスキップし、結果に含めます")
+            return True, None, 'Access Denied (403)'  # Trueを返してフィルタをバイパス
+        elif response.status_code >= 400:
+            logger.warning(f"⚠️ HTTPエラー ({response.status_code}): {url} - <fw-タグチェックをスキップし、結果に含めます")
+            return True, None, f'HTTP Error ({response.status_code})'
+        
         html_content = response.text
         
         # <fw- で始まるタグを検索
@@ -617,9 +626,13 @@ def check_fw_tag_in_url(url):
         logger.info(f"Detected format: {format_name}")
         
         return has_fw_tag, html_content, format_name
+    except requests.exceptions.Timeout:
+        logger.warning(f"⚠️ タイムアウト: {url} - <fw-タグチェックをスキップし、結果に含めます")
+        return True, None, 'Timeout'
     except Exception as e:
         logger.error(f"Error checking <fw- tag: {e}")
-        return False, None, 'Unknown'
+        logger.warning(f"⚠️ エラー発生: {url} - <fw-タグチェックをスキップし、結果に含めます")
+        return True, None, 'Error'
 
 @app.route('/api/check-fw-tag', methods=['GET'])
 def api_check_fw_tag():
