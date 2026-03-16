@@ -161,7 +161,7 @@ def get_country_regions(country_name):
         # （System などの特殊な値に対応）
         return [country_name]
 
-def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter='none'):
+def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter='none', business_id_filter=''):
     """データをマージしてフィルタリングする"""
     try:
         logger.info("[STEP 2] データマージ処理開始")
@@ -226,6 +226,16 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
                 merged_df = merged_df[merged_df['Account: Industry'].isin(industries)]
                 logger.info(f"業界フィルター適用 ({', '.join(industries)}): {before_filter}行 → {len(merged_df)}行")
                 before_filter = len(merged_df)
+        
+        # Business IDフィルター
+        if business_id_filter:
+            try:
+                business_id_numeric = int(business_id_filter)
+                merged_df = merged_df[merged_df['Business Id'] == business_id_numeric]
+                logger.info(f"Business IDフィルター適用 ({business_id_filter}): {before_filter}行 → {len(merged_df)}行")
+                before_filter = len(merged_df)
+            except ValueError:
+                logger.warning(f"無効なBusiness ID形式: {business_id_filter}")
         
         if country != 'none':
             # 国名から対応する地域名のリストを取得
@@ -641,10 +651,11 @@ def process_data():
         industry_filter = request.form.get('industry_filter', 'none')
         country = request.form.get('country', 'none')
         format_filter = request.form.get('format_filter', 'none')
+        business_id_filter = request.form.get('business_id_filter', '').strip()
         page = int(request.form.get('page', 1))
         page_size = int(request.form.get('page_size', 5))  # デフォルトを5に変更（最大5チャンネル表示）
         
-        logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, フォーマット={format_filter}, ページ={page}")
+        logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, フォーマット={format_filter}, Business ID={business_id_filter}, ページ={page}")
         
         # ファイルを一時保存
         video_filename = secure_filename(video_file.filename)
@@ -766,7 +777,7 @@ def process_data():
             return jsonify({'error': 'Google Sheetからデータを取得できませんでした'}), 500
         
         # データのマージとフィルタリング
-        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter)
+        result_df = merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country, format_filter, business_id_filter)
         
         if result_df is None:
             logger.error("データマージ処理に失敗")

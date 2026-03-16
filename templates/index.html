@@ -201,6 +201,15 @@
                             <option value="Player Deck">Player Deck</option>
                         </select>
                     </div>
+                    
+                    <!-- Business ID検索 -->
+                    <div>
+                        <label for="businessIdFilter" class="block text-sm font-medium text-gray-700 mb-2">
+                            <span data-lang-key="business_id">Business ID</span>
+                        </label>
+                        <input type="text" id="businessIdFilter" name="business_id_filter" placeholder="Business IDを入力"
+                               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-custom focus:border-orange-custom">
+                    </div>
                 </div>
                 
                 <!-- カテゴリー検索ボックス -->
@@ -373,6 +382,7 @@
             live_stream: { ja: 'ライブ配信事例', en: 'Live Stream Cases' },
             country: { ja: '国', en: 'Country' },
             format: { ja: 'フォーマット', en: 'Format' },
+            business_id: { ja: 'Business ID', en: 'Business ID' },
             not_selected: { ja: '選択しない', en: 'Not Selected' },
             other_country: { ja: 'その他', en: 'Other' },
             search_category: { ja: 'カテゴリー検索', en: 'Search Category' },
@@ -1126,6 +1136,12 @@
                 } else {
                     // いずれも選択されていない場合: すべての業種を対象
                     formData.set('industry_filter', 'none');
+                }
+                
+                // Business IDフィルタを追加
+                const businessIdFilter = document.getElementById('businessIdFilter');
+                if (businessIdFilter && businessIdFilter.value.trim()) {
+                    formData.set('business_id_filter', businessIdFilter.value.trim());
                 }
                 
                 // ページ番号を追加
