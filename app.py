@@ -169,9 +169,15 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         
         # 事例タイプに応じて使用するデータフレームを選択
         if case_type == 'short_video':
+            if video_df is None:
+                logger.error("ショート動画データが選択されていますが、ファイルがアップロードされていません")
+                return None
             main_df = video_df.copy()
             logger.info("ショート動画データを使用")
         else:  # live_stream
+            if live_df is None:
+                logger.error("ライブ配信データが選択されていますが、ファイルがアップロードされていません")
+                return None
             main_df = live_df.copy()
             logger.info("ライブ配信データを使用")
         
@@ -630,20 +636,24 @@ def process_data():
         logger.info("新しい検索リクエスト開始")
         logger.info("="*60)
         
-        # ファイルのチェック
-        if 'video_file' not in request.files or 'live_file' not in request.files:
+        # ファイルのチェック（少なくとも1つのファイルが必要）
+        video_file = request.files.get('video_file')
+        live_file = request.files.get('live_file')
+        
+        has_video = video_file and video_file.filename != ''
+        has_live = live_file and live_file.filename != ''
+        
+        if not has_video and not has_live:
             logger.warning("ファイルがアップロードされていません")
-            return jsonify({'error': '両方のファイルをアップロードしてください'}), 400
+            return jsonify({'error': '少なくとも1つのファイルをアップロードしてください'}), 400
         
-        video_file = request.files['video_file']
-        live_file = request.files['live_file']
+        # アップロードされたファイルの形式チェック
+        if has_video and not allowed_file(video_file.filename):
+            logger.warning(f"不正なファイル形式: {video_file.filename}")
+            return jsonify({'error': 'Excelファイル (.xlsx, .xls) のみアップロード可能です'}), 400
         
-        if video_file.filename == '' or live_file.filename == '':
-            logger.warning("ファイル名が空です")
-            return jsonify({'error': 'ファイルが選択されていません'}), 400
-        
-        if not (allowed_file(video_file.filename) and allowed_file(live_file.filename)):
-            logger.warning(f"不正なファイル形式: {video_file.filename}, {live_file.filename}")
+        if has_live and not allowed_file(live_file.filename):
+            logger.warning(f"不正なファイル形式: {live_file.filename}")
             return jsonify({'error': 'Excelファイル (.xlsx, .xls) のみアップロード可能です'}), 400
         
         # パラメータの取得
@@ -656,29 +666,36 @@ def process_data():
         page_size = int(request.form.get('page_size', 5))  # デフォルトを5に変更（最大5チャンネル表示）
         
         logger.info(f"検索条件: 事例タイプ={case_type}, 業界フィルター={industry_filter}, 国={country}, フォーマット={format_filter}, Business ID={business_id_filter}, ページ={page}")
-        
-        # ファイルを一時保存
-        video_filename = secure_filename(video_file.filename)
-        live_filename = secure_filename(live_file.filename)
+        logger.info(f"アップロードされたファイル: video={has_video}, live={has_live}")
         
         # uploadsディレクトリの存在を確認（念のため）
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
-        live_path = os.path.join(app.config['UPLOAD_FOLDER'], live_filename)
+        # ファイルを一時保存（アップロードされたもののみ）
+        video_path = None
+        live_path = None
         
-        video_file.save(video_path)
-        live_file.save(live_path)
+        if has_video:
+            video_filename = secure_filename(video_file.filename)
+            video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+            video_file.save(video_path)
+            video_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
+            logger.info(f"ショート動画ファイル保存完了: {video_filename} ({video_size:.2f}MB)")
+            
+            if video_size > 10:
+                logger.warning(f"⚠️ 大きなファイルが検出されました: video={video_size:.2f}MB")
+                logger.warning(f"⚠️ 処理に時間がかかる可能性があります（最大5分）")
         
-        # ファイルサイズを確認
-        video_size = os.path.getsize(video_path) / (1024 * 1024)  # MB
-        live_size = os.path.getsize(live_path) / (1024 * 1024)  # MB
-        logger.info(f"ファイル保存完了: {video_filename} ({video_size:.2f}MB), {live_filename} ({live_size:.2f}MB)")
-        
-        # 大きすぎるファイルを警告
-        if video_size > 10 or live_size > 10:
-            logger.warning(f"⚠️ 大きなファイルが検出されました: video={video_size:.2f}MB, live={live_size:.2f}MB")
-            logger.warning(f"⚠️ 処理に時間がかかる可能性があります（最大5分）")
+        if has_live:
+            live_filename = secure_filename(live_file.filename)
+            live_path = os.path.join(app.config['UPLOAD_FOLDER'], live_filename)
+            live_file.save(live_path)
+            live_size = os.path.getsize(live_path) / (1024 * 1024)  # MB
+            logger.info(f"ライブ配信ファイル保存完了: {live_filename} ({live_size:.2f}MB)")
+            
+            if live_size > 10:
+                logger.warning(f"⚠️ 大きなファイルが検出されました: live={live_size:.2f}MB")
+                logger.warning(f"⚠️ 処理に時間がかかる可能性があります（最大5分）")
         
         # データの読み込み（メモリ効率化）
         logger.info("[STEP 0] Excelファイル読み込み中...")
@@ -715,60 +732,68 @@ def process_data():
             '100P VIEW_COMPLETION UU RATE'
         ]
         
-        try:
-            # read_excel with engine='openpyxl' and read_only=True for memory efficiency
-            video_df = pd.read_excel(video_path, engine='openpyxl')
-            logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
-            
-            # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
-            video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
-            
-            # Video Viewsカラムを検出して追加
-            for vv_col in video_views_candidates:
-                if vv_col in video_df.columns:
-                    video_columns_to_keep.append(vv_col)
-                    logger.info(f"Video Viewsカラムを検出: {vv_col}")
-                    break
-            
-            # オプションの指標カラムを追加
-            for metric in optional_metrics:
-                if metric in video_df.columns:
-                    video_columns_to_keep.append(metric)
-                    logger.info(f"オプション指標を検出: {metric}")
-            
-            if video_columns_to_keep:
-                video_df = video_df[video_columns_to_keep]
-                logger.info(f"必要なカラムのみ保持: {video_columns_to_keep}")
-        except Exception as e:
-            logger.error(f"ショート動画ファイル読み込みエラー: {e}")
-            raise
+        # データの読み込み（アップロードされたファイルのみ）
+        logger.info("[STEP 0] Excelファイル読み込み中...")
         
-        try:
-            live_df = pd.read_excel(live_path, engine='openpyxl')
-            logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
-            
-            # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
-            live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
-            
-            # Video Viewsカラムを検出して追加
-            for vv_col in video_views_candidates:
-                if vv_col in live_df.columns:
-                    live_columns_to_keep.append(vv_col)
-                    logger.info(f"Video Viewsカラムを検出（ライブ）: {vv_col}")
-                    break
-            
-            # オプションの指標カラムを追加
-            for metric in optional_metrics:
-                if metric in live_df.columns:
-                    live_columns_to_keep.append(metric)
-                    logger.info(f"オプション指標を検出（ライブ）: {metric}")
-            
-            if live_columns_to_keep:
-                live_df = live_df[live_columns_to_keep]
-                logger.info(f"必要なカラムのみ保持: {live_columns_to_keep}")
-        except Exception as e:
-            logger.error(f"ライブ配信ファイル読み込みエラー: {e}")
-            raise
+        video_df = None
+        live_df = None
+        
+        if has_video:
+            try:
+                # read_excel with engine='openpyxl' and read_only=True for memory efficiency
+                video_df = pd.read_excel(video_path, engine='openpyxl')
+                logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
+                
+                # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
+                video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
+                
+                # Video Viewsカラムを検出して追加
+                for vv_col in video_views_candidates:
+                    if vv_col in video_df.columns:
+                        video_columns_to_keep.append(vv_col)
+                        logger.info(f"Video Viewsカラムを検出: {vv_col}")
+                        break
+                
+                # オプションの指標カラムを追加
+                for metric in optional_metrics:
+                    if metric in video_df.columns:
+                        video_columns_to_keep.append(metric)
+                        logger.info(f"オプション指標を検出: {metric}")
+                
+                if video_columns_to_keep:
+                    video_df = video_df[video_columns_to_keep]
+                    logger.info(f"必要なカラムのみ保持: {video_columns_to_keep}")
+            except Exception as e:
+                logger.error(f"ショート動画ファイル読み込みエラー: {e}")
+                raise
+        
+        if has_live:
+            try:
+                live_df = pd.read_excel(live_path, engine='openpyxl')
+                logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
+                
+                # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
+                live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
+                
+                # Video Viewsカラムを検出して追加
+                for vv_col in video_views_candidates:
+                    if vv_col in live_df.columns:
+                        live_columns_to_keep.append(vv_col)
+                        logger.info(f"Video Viewsカラムを検出（ライブ）: {vv_col}")
+                        break
+                
+                # オプションの指標カラムを追加
+                for metric in optional_metrics:
+                    if metric in live_df.columns:
+                        live_columns_to_keep.append(metric)
+                        logger.info(f"オプション指標を検出（ライブ）: {metric}")
+                
+                if live_columns_to_keep:
+                    live_df = live_df[live_columns_to_keep]
+                    logger.info(f"必要なカラムのみ保持: {live_columns_to_keep}")
+            except Exception as e:
+                logger.error(f"ライブ配信ファイル読み込みエラー: {e}")
+                raise
         
         sheet_df = get_google_sheet_data()
         
