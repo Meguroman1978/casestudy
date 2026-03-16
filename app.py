@@ -276,6 +276,13 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         
         logger.info(f"[STEP 4 完了] フィルタリング完了: {len(merged_df)}行")
         
+        # デバッグ: フィルタリング後のデータを確認
+        if len(merged_df) > 0:
+            logger.debug(f"フィルタ後のBusiness Idサンプル: {merged_df['Business Id'].head(10).tolist()}")
+            logger.debug(f"フィルタ後のAccount: Industryのnull数: {merged_df['Account: Industry'].isnull().sum()}/{len(merged_df)}")
+        else:
+            logger.warning("⚠️ フィルタリング後のデータが0行です！")
+        
         # 必要な列だけを抽出
         logger.info("[STEP 5] 結果データ整形中...")
         
