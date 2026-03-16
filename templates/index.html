@@ -133,7 +133,7 @@
                             <span data-lang-key="video_file">Top Video Views per URL (ショート動画)</span>
                         </label>
                         <div class="relative">
-                            <input type="file" id="videoFile" name="video_file" accept=".xlsx,.xls" required
+                            <input type="file" id="videoFile" name="video_file" accept=".xlsx,.xls"
                                    class="hidden">
                             <button type="button" onclick="document.getElementById('videoFile').click()" 
                                     class="px-4 py-2 bg-orange-50 text-orange-700 font-semibold rounded-md hover:bg-orange-100 border border-orange-200">
@@ -147,7 +147,7 @@
                             <span data-lang-key="live_file">Top Live Stream Views per URL (ライブ配信)</span>
                         </label>
                         <div class="relative">
-                            <input type="file" id="liveFile" name="live_file" accept=".xlsx,.xls" required
+                            <input type="file" id="liveFile" name="live_file" accept=".xlsx,.xls"
                                    class="hidden">
                             <button type="button" onclick="document.getElementById('liveFile').click()" 
                                     class="px-4 py-2 bg-orange-50 text-orange-700 font-semibold rounded-md hover:bg-orange-100 border border-orange-200">
@@ -912,6 +912,35 @@
             // フォーム送信処理
             document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // ファイルが少なくとも1つ選択されているかチェック
+            const videoFile = document.getElementById('videoFile').files[0];
+            const liveFile = document.getElementById('liveFile').files[0];
+            
+            if (!videoFile && !liveFile) {
+                const errorMsg = currentLanguage === 'ja' 
+                    ? '少なくとも1つのファイルをアップロードしてください'
+                    : 'Please upload at least one file';
+                showError(errorMsg);
+                return;
+            }
+            
+            // 選択された事例タイプに対応するファイルがあるかチェック
+            const caseType = document.getElementById('caseType').value;
+            if (caseType === 'short_video' && !videoFile) {
+                const errorMsg = currentLanguage === 'ja'
+                    ? 'ショート動画事例を検索するには、Top Video Views per URL ファイルをアップロードしてください'
+                    : 'Please upload Top Video Views per URL file to search for short video cases';
+                showError(errorMsg);
+                return;
+            }
+            if (caseType === 'live_stream' && !liveFile) {
+                const errorMsg = currentLanguage === 'ja'
+                    ? 'ライブ配信事例を検索するには、Top Live Stream Views per URL ファイルをアップロードしてください'
+                    : 'Please upload Top Live Stream Views per URL file to search for live stream cases';
+                showError(errorMsg);
+                return;
+            }
             
             // 既存の検索をキャンセル
             if (abortController) {
