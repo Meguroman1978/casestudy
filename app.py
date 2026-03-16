@@ -244,8 +244,23 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
         if business_id_filter:
             try:
                 business_id_numeric = int(business_id_filter)
+                logger.info(f"Business IDフィルター適用前: {before_filter}行")
+                logger.info(f"検索するBusiness ID: {business_id_numeric} (型: {type(business_id_numeric)})")
+                
+                # フィルター適用前にBusiness Idの値をログ出力
+                logger.debug(f"merged_df['Business Id']のユニーク値の数: {merged_df['Business Id'].nunique()}")
+                logger.debug(f"merged_df['Business Id']のサンプル: {merged_df['Business Id'].head(10).tolist()}")
+                
+                # Business IDでフィルタリング
                 merged_df = merged_df[merged_df['Business Id'] == business_id_numeric]
-                logger.info(f"Business IDフィルター適用 ({business_id_filter}): {before_filter}行 → {len(merged_df)}行")
+                logger.info(f"Business IDフィルター適用後: {len(merged_df)}行")
+                
+                if len(merged_df) == 0:
+                    logger.warning(f"⚠️ Business ID {business_id_numeric} に一致する行が見つかりませんでした")
+                    logger.warning(f"アップロードファイルにこのBusiness IDが含まれているか確認してください")
+                else:
+                    logger.info(f"✅ Business ID {business_id_numeric} で {len(merged_df)} 行が見つかりました")
+                
                 before_filter = len(merged_df)
             except ValueError:
                 logger.warning(f"無効なBusiness ID形式: {business_id_filter}")
@@ -751,6 +766,12 @@ def process_data():
                 video_df = pd.read_excel(video_path, engine='openpyxl')
                 logger.info(f"ショート動画データ: {len(video_df)}行, カラム: {video_df.columns.tolist()}")
                 
+                # Business Idのデータを確認
+                if 'Business Id' in video_df.columns:
+                    logger.info(f"Business Idのユニーク値の数: {video_df['Business Id'].nunique()}")
+                    logger.debug(f"Business Idのサンプル（最初の10個）: {video_df['Business Id'].head(10).tolist()}")
+                    logger.debug(f"Business Idのサンプル（最後の10個）: {video_df['Business Id'].tail(10).tolist()}")
+                
                 # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
                 video_columns_to_keep = [col for col in required_columns if col in video_df.columns]
                 
@@ -778,6 +799,12 @@ def process_data():
             try:
                 live_df = pd.read_excel(live_path, engine='openpyxl')
                 logger.info(f"ライブ配信データ: {len(live_df)}行, カラム: {live_df.columns.tolist()}")
+                
+                # Business Idのデータを確認
+                if 'Business Id' in live_df.columns:
+                    logger.info(f"Business Idのユニーク値の数: {live_df['Business Id'].nunique()}")
+                    logger.debug(f"Business Idのサンプル（最初の10個）: {live_df['Business Id'].head(10).tolist()}")
+                    logger.debug(f"Business Idのサンプル（最後の10個）: {live_df['Business Id'].tail(10).tolist()}")
                 
                 # 不要なカラムを削除してメモリを解放（オプションの指標も含める）
                 live_columns_to_keep = [col for col in required_columns if col in live_df.columns]
