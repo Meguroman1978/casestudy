@@ -182,6 +182,13 @@ def merge_data(video_df, live_df, sheet_df, case_type, industry_filter, country,
             logger.info("ライブ配信データを使用")
         
         logger.debug(f"選択データ: {len(main_df)}行")
+        logger.debug(f"選択データのカラム: {main_df.columns.tolist()}")
+        
+        # 必要なカラムが存在するか確認
+        if 'Business Id' not in main_df.columns:
+            logger.error(f"エラー: 'Business Id' カラムが見つかりません。利用可能なカラム: {main_df.columns.tolist()}")
+            return None
+        
         logger.debug(f"選択データ Business Id データ型: {main_df['Business Id'].dtype}")
         logger.debug(f"選択データ Business Id サンプル: {main_df['Business Id'].head(3).tolist()}")
         logger.debug(f"Google Sheet Business Id データ型: {sheet_df['Business Id'].dtype}")
@@ -806,7 +813,14 @@ def process_data():
         
         if result_df is None:
             logger.error("データマージ処理に失敗")
-            return jsonify({'error': 'データの処理中にエラーが発生しました。詳細はサーバーログを確認してください。'}), 500
+            # より具体的なエラーメッセージを返す
+            if case_type == 'short_video' and video_df is None:
+                error_msg = 'ショート動画事例を検索するには、Top Video Views per URL ファイルをアップロードしてください'
+            elif case_type == 'live_stream' and live_df is None:
+                error_msg = 'ライブ配信事例を検索するには、Top Live Stream Views per URL ファイルをアップロードしてください'
+            else:
+                error_msg = 'データの処理中にエラーが発生しました。アップロードしたファイルに必要なカラム（Business Id, Page Url等）が含まれているか確認してください。'
+            return jsonify({'error': error_msg}), 500
         
         # ドメインごとにグループ化してページネーション
         pagination_result = group_by_domain_and_paginate(result_df, page=page, page_size=page_size)
